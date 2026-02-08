@@ -1,0 +1,14 @@
+Items: {
+	Weapons: {
+		Summons: {
+			Whip: {
+				ExampleWhipItem: {
+					DisplayName: StormScythe
+					Tooltip: Lashes out at enemies with electric power!
+				}
+			}
+		}
+	}
+}
+
+Projectiles.ExampleWhipProjectile.DisplayName: StormScythe Projectile
