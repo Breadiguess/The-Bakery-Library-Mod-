@@ -1,6 +1,6 @@
 ﻿using BreadLibrary.Core.Graphics;
 
-namespace BreadLibrary.Common;
+namespace BreadLibrary.Common.Whip;
 
 public interface IWhipModifier
 {
@@ -194,15 +194,12 @@ public static class WhipModifiers
             return new Vector2(-dir.Y, dir.X);
         }
     }
+
 }
 
 
 public static class WhipMotions
 {
-  
-
-
-
     /// <summary>
     ///     pretty much vanilla.
     ///     mostly exists so that you can tweak the vanilla whip without having to re-create the entire
@@ -233,7 +230,7 @@ public static class WhipMotions
     ///     Stolen from entropy, who stole it from fancy whips.
     ///     i feel no shame.
     /// </summary>
-    public class BraidedMotion : IWhipMotion
+    public class FancyWhipMotion : IWhipMotion
     {
         public void Apply(List<Vector2> controlPoints, Projectile projectile, int segments, float rangeMultiplier, float progress)
         {
@@ -299,6 +296,10 @@ public static class WhipMotions
         }
     }
 
+
+    /// <summary>
+    /// what it says on the tin.
+    /// </summary>
     public class StraightLineMotion : IWhipMotion
     {
         /// <summary>
@@ -462,7 +463,7 @@ public static class WhipMotions
 
 /// <summary>
 /// </summary>
-public class ModularWhipController
+public class ModularWhipController 
 {
     private readonly IWhipMotion motion;
 

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace BreadLibrary.Common
+namespace BreadLibrary.Common.Whip
 {
     public abstract class BaseWhipProjectile : ModProjectile
     {
@@ -13,21 +13,20 @@ namespace BreadLibrary.Common
         protected virtual void SetupModifiers(ModularWhipController controller)
         {
         }
-        
+
         /// <summary>
         /// override to change the type of motion your whip exhibits.
         /// </summary>
         /// <returns></returns>
-        protected virtual IWhipMotion CreateMotion()
-        {
-            return new WhipMotions.VanillaWhipMotion();
-        }
+        protected virtual IWhipMotion CreateMotion() => new WhipMotions.VanillaWhipMotion();
 
         protected ModularWhipController WhipController;
         private void ModifyControlPoints(List<Vector2> points)
         {
             if (WhipController == null)
-                return;
+            {
+                WhipController = new(CreateMotion());
+            }
 
             Projectile.GetWhipSettings(Projectile, out float timeToFlyOut, out int segments, out float rangeMultiplier);
 
@@ -78,6 +77,8 @@ namespace BreadLibrary.Common
             get => (int)Projectile.ai[0];
         }
         public ref Player Owner => ref Main.player[Projectile.owner];
+
+        private Item item => Owner.HeldItem;
 
 
         #endregion
@@ -240,9 +241,11 @@ namespace BreadLibrary.Common
                         for (int i = 0; i < projectile._OnHitEffects.Count; i++)
                         {
                             target.AddBuff(projectile._OnHitEffects[i].OnHitEffectID, projectile._OnHitEffects[i].OnHitDuration);
+                        
                         }
                     }
 
+                  
                 }
 
             }
@@ -266,7 +269,15 @@ namespace BreadLibrary.Common
             }
         }
 
+        public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
+        {
+            base.OnHitNPC(target, hit, damageDone);
 
+            if(item.ModItem is not null)
+            {
+                item.ModItem.OnHitNPC(Owner, target, hit, damageDone);
+            }
+        }
 
         #endregion
 
@@ -366,7 +377,7 @@ namespace BreadLibrary.Common
             else return new();
         }
 
-        public Rectangle _HeadRectangle => HeadRect(_Head_HorizontalFrames, _Head_VerticalFrames, this._Head_x, this._Head_y);
+        public Rectangle _HeadRectangle => HeadRect(_Head_HorizontalFrames, _Head_VerticalFrames, _Head_x, _Head_y);
 
         public Vector2 _HeadOffset = Vector2.Zero;
 
@@ -401,7 +412,7 @@ namespace BreadLibrary.Common
             Vector2 Origin = HeadOrigin(_HeadOffset);
             Projectile.GetWhipSettings(Projectile, out float timeToFlyOut, out int _, out float rangeMultiplier);
 
-            float normalized = timeToFlyOut > 0f ? Math.Clamp((float)Time / timeToFlyOut, 0f, 1f) : 1f;
+            float normalized = timeToFlyOut > 0f ? Math.Clamp(Time / timeToFlyOut, 0f, 1f) : 1f;
             float apex = MathF.Sin(normalized * MathF.PI);
             float apexAmplitude = _HeadScaleAmount;
 
@@ -449,8 +460,8 @@ namespace BreadLibrary.Common
             {
                 _Handle_HorizontalFrames = horizontalFrames;
                 _Handle_VerticalFrames = veritcalFrames;
-                this._Handle_x = x;
-                this._Handle_y = y;
+                _Handle_x = x;
+                _Handle_y = y;
                 return WhipHandle.Frame(horizontalFrames, veritcalFrames, x, y);
             }
             else return new();
@@ -484,7 +495,7 @@ namespace BreadLibrary.Common
         public override bool PreDraw(ref Color lightColor)
         {
             List<Vector2> list = new List<Vector2>();
-            this.ModifyControlPoints(list);
+            ModifyControlPoints(list);
 
             Texture2D texture = TextureAssets.Projectile[Type].Value;
 
@@ -494,6 +505,9 @@ namespace BreadLibrary.Common
             List<Vector2> controlPoints = list;
 
             List<Vector2> renderPoints = ResamplePolyline(controlPoints, RenderSpacing);
+
+            if (renderPoints.Count <= 0)
+                return false;
             if (_DebugMode)
             {
 
@@ -622,7 +636,7 @@ namespace BreadLibrary.Common
                         break;
 
                     case WhipDrawPass.Handle:  
-                        if (_ShouldDrawHandle)
+                        if (_ShouldDrawHandle && WhipHandle is not null)
                         {
                             Vector2 handlepos = list[1];
                             Rectangle handleframe = _HandleRectangle;
@@ -726,16 +740,16 @@ namespace BreadLibrary.Common
 
                 Vector2 normal = dir.RotatedBy(MathHelper.PiOver2);
 
-                float t = (totalLength > 0f) ? (accumulated / totalLength) : 0f;
+                float t = totalLength > 0f ? accumulated / totalLength : 0f;
                 // Use the overrideable GetWhipWidth function to compute the width for this sample.
                 float width = GetWhipWidth(baseWidth, t);
                 float ScrollOffset = _PrimitiveIsScrollingTexture ? _PrimitiveScrollRate() * Main.GlobalTimeWrappedHourly : 0.0f;
-                float u = (totalLength > 0f) ? (accumulated / totalLength) * textureRepeats + uOffset + ScrollOffset : uOffset + ScrollOffset;
+                float u = totalLength > 0f ? accumulated / totalLength * textureRepeats + uOffset + ScrollOffset : uOffset + ScrollOffset;
 
                 // Use per-sample color provider if overridden.
                 Color lightingColor = !PrimitiveGlows? Lighting.GetColor(p.ToTileCoordinates()) : Color.White;
 
-                float w = (width/2f) / width;  // gives -1 to +1
+                float w = width/2f / width;  // gives -1 to +1
                 float dist = MathF.Abs(w);       // gives 0 center → 1 edge
                 float wRight = -1f * dist;
                 float wLeft = 1f * dist;

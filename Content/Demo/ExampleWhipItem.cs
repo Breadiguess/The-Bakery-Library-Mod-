@@ -9,7 +9,8 @@
             Item.useAnimation = 34;
             Item.useTime = 34;
             Item.shootSpeed = 5.6f;
-            Item.rare = ItemRarityID.Green;
+            Item.useStyle = ItemUseStyleID.Thrust;
+            Item.rare = ItemRarityID.Blue;
             Item.channel = true;
             Item.autoReuse = true;
         }

@@ -9,6 +9,16 @@ Items: {
 			}
 		}
 	}
+
+	MultiLash_Item: {
+		DisplayName: Multi Lash_ Item
+		Tooltip: ""
+	}
 }
 
-Projectiles.ExampleWhipProjectile.DisplayName: StormScythe Projectile
+Projectiles: {
+	ExampleWhipProjectile.DisplayName: StormScythe Projectile
+	MultiLash_Whip.DisplayName: Multi Lash_ Whip
+}
+
+NPCs.SoftBodyNPC.DisplayName: Soft Body N P C

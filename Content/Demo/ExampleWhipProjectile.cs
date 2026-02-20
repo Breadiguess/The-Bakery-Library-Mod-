@@ -1,4 +1,4 @@
-﻿using BreadLibrary.Common;
+﻿using BreadLibrary.Common.Whip;
 using Terraria;
 
 namespace BreadLibrary.Content.Demo
@@ -8,13 +8,13 @@ namespace BreadLibrary.Content.Demo
         #region IwhipMOtion
         protected override IWhipMotion CreateMotion()
         {
-            return new WhipMotions.BraidedMotion();
+            return new WhipMotions.VanillaWhipMotion();
         }
 
         protected override void SetupModifiers(ModularWhipController controller)
         {
-            controller.AddModifier(new WhipModifiers.TwirlModifier(4, 12, 0.1f));
-            controller.AddModifier(new WhipModifiers.SmoothSineModifier(6, 30, 8f, 4f, 1f, Direction: Math.Sign(Projectile.velocity.X)));
+            //controller.AddModifier(new WhipModifiers.TwirlModifier(4, 12, 0.05f* Projectile.spriteDirection));
+            //controller.AddModifier(new WhipModifiers.SmoothSineModifier(6, 30, 8f, 4f, 1f, Direction: Projectile.spriteDirection));
         }
         #endregion
         public override void OnSpawn(IEntitySource source)
@@ -42,17 +42,18 @@ namespace BreadLibrary.Content.Demo
         public override float GetWhipWidth(float baseWidth, float t)
         {
             _HeadOffset = new Vector2(0, -_HeadRectangle.Height/2f);
-            _DebugMode = true;
+            _DebugMode = false;
             _ShouldDrawNormal = false;
             _Head_VerticalFrames = 5;
-            baseWidth += 5;
+            baseWidth += 30;
             return baseWidth + Math.Clamp(MathF.Sin(t * 10f) * 10f  * MathF.Tan(t * 14f + Main.GlobalTimeWrappedHourly*20f + Main.rand.NextFloat(4038f)) * MathHelper.SmoothStep(0, 1f, t), 1, 4);
         }
         protected override float RenderSpacing => 10f;
         public override float _PrimitiveScrollRate() => -1f;
         public override Color GetWhipColor(float t, float w)
         {
-          
+            Projectile.alpha = 0;
+            return Color.White;
             return Color.Lerp(Color.White, Color.Blue, MathF.Sin(Main.GlobalTimeWrappedHourly)*MathF.Cos(t*10f));
         }
         public float Saturate(float x)

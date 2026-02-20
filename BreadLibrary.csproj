@@ -15,6 +15,7 @@
 	  <Compile Remove="Core\BaseClasses\Whip\WhipPipeline.cs" />
 	</ItemGroup>
 	<ItemGroup>
+	  <Folder Include="Common\Graphics\" />
 	  <Folder Include="Core\BaseClasses\Whip\" />
 	</ItemGroup>
 
