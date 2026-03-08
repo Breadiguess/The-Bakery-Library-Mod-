@@ -45,15 +45,24 @@ namespace BreadLibrary.Core.SoftBodySim
             public float RestArea;
             public float Stiffness;  
         }
-
+        public float RestDensity = 1.0f;   // tune
+        public float DensityStiffness = 0.8f; // 0..1
+        public float Viscosity = 0.08f;    // 0..1
+        public float Cohesion = 0.02f;     // small
+        public float KernelRadius = 24f;   // neighbor radius in pixelss
         public readonly List<Node> Nodes = new();
         public readonly List<DistanceConstraint> Dist = new();
         public readonly List<AreaConstraint> Areas = new();
         public readonly List<AttachmentConstraint> Attachments = new();
+
+        private readonly Dictionary<Point, List<int>> _cells = new();
+        private readonly List<int> _neighbors = new();
+
+       
+
         public Vector2 Gravity = new(0f, 0.35f);
         public float Dt = 1f;
         public float Pressure = 0f;
-        public float Viscosity = 0.1f;
         #region Public stuff
         public int AddNode(Vector2 pos, float mass, float radius, bool pinned = false)
         {
@@ -147,8 +156,7 @@ namespace BreadLibrary.Core.SoftBodySim
             int iters = Math.Max(1, Mat.Iterations);
             for (int i = 0; i < iters; i++)
             {
-                SolveDistanceConstraints();
-                SolveAreaConstraints();
+                SolveGooConstraints();
                 SolvePressure();
                 SolveAttachments();
                 CollideAll();
@@ -340,6 +348,142 @@ namespace BreadLibrary.Core.SoftBodySim
                 b.PrevPos -= impulse;
             }
         }
+
+        private void SolveGooConstraints()
+        {
+            float h = KernelRadius;
+            float h2 = h * h;
+
+            BuildGrid();
+
+            // 1) compute density per particle
+            Span<float> density = stackalloc float[Math.Min(Nodes.Count, 4096)];
+            float[] densityArr = null;
+            if (Nodes.Count > density.Length) densityArr = new float[Nodes.Count];
+
+            for (int i = 0; i < Nodes.Count; i++)
+            {
+                float rho = 0f;
+                var pi = Nodes[i].Pos;
+
+                GetNeighbors(i);
+                for (int n = 0; n < _neighbors.Count; n++)
+                {
+                    int j = _neighbors[n];
+                    float r = Vector2.Distance(pi, Nodes[j].Pos);
+                    rho += WPoly6(r, h);
+                }
+
+                // self contribution
+                rho += WPoly6(0f, h);
+
+                if (densityArr != null) densityArr[i] = rho;
+                else density[i] = rho;
+            }
+
+            // 2) project density toward RestDensity
+            for (int i = 0; i < Nodes.Count; i++)
+            {
+                ref var ni = ref NodesRef(i);
+                if (ni.InvMass <= 0f) continue;
+
+                float rho = densityArr != null ? densityArr[i] : density[i];
+                float C = (rho - RestDensity);
+                if (MathF.Abs(C) < 1e-4f) continue;
+
+                GetNeighbors(i);
+
+                Vector2 gradSum = Vector2.Zero;
+                float denom = 1e-6f;
+
+                var pi = ni.Pos;
+
+                for (int n = 0; n < _neighbors.Count; n++)
+                {
+                    int j = _neighbors[n];
+                    var pj = Nodes[j].Pos;
+                    Vector2 rij = pi - pj;
+                    float r = rij.Length();
+                    Vector2 grad = GradSpiky(rij, r, h);
+
+                    gradSum += grad;
+                    denom += grad.LengthSquared();
+                }
+
+                // “lambda” but simplified: turn constraint error into a positional correction magnitude
+                float s = DensityStiffness * Mat.StructuralStiffness; // reuse your material scalar
+                float corrMag = (C / denom) * s;
+
+                // apply corrections (push away when too dense, pull in when too sparse)
+                for (int n = 0; n < _neighbors.Count; n++)
+                {
+                    int j = _neighbors[n];
+                    ref var nj = ref NodesRef(j);
+
+                    if (nj.InvMass <= 0f) continue;
+
+                    Vector2 rij = ni.Pos - nj.Pos;
+                    float r = rij.Length();
+                    Vector2 grad = GradSpiky(rij, r, h);
+
+                    Vector2 dp = grad * corrMag;
+
+                    ni.Pos -= dp * ni.InvMass;
+                    nj.Pos += dp * nj.InvMass;
+                }
+            }
+
+            // 3) viscosity (velocity diffusion)
+            if (Viscosity > 0f)
+            {
+                BuildGrid();
+                for (int i = 0; i < Nodes.Count; i++)
+                {
+                    ref var ni = ref NodesRef(i);
+                    if (ni.InvMass <= 0f) continue;
+
+                    GetNeighbors(i);
+
+                    Vector2 vi = ni.Pos - ni.PrevPos;
+                    for (int n = 0; n < _neighbors.Count; n++)
+                    {
+                        int j = _neighbors[n];
+                        ref var nj = ref NodesRef(j);
+                        if (nj.InvMass <= 0f) continue;
+
+                        Vector2 vj = nj.Pos - nj.PrevPos;
+                        Vector2 vdiff = vj - vi;
+
+                        // pull velocities together
+                        Vector2 impulse = vdiff * (Viscosity * 0.5f);
+                        ni.PrevPos += impulse;
+                        nj.PrevPos -= impulse;
+                    }
+                }
+            }
+
+            // 4) cohesion / surface tension (very light)
+            if (Cohesion > 0f)
+            {
+                BuildGrid();
+                for (int i = 0; i < Nodes.Count; i++)
+                {
+                    ref var ni = ref NodesRef(i);
+                    if (ni.InvMass <= 0f) continue;
+
+                    GetNeighbors(i);
+                    if (_neighbors.Count == 0) continue;
+
+                    // pull toward local centroid slightly
+                    Vector2 centroid = Vector2.Zero;
+                    for (int n = 0; n < _neighbors.Count; n++)
+                        centroid += Nodes[_neighbors[n]].Pos;
+                    centroid /= _neighbors.Count;
+
+                    ni.Pos += (centroid - ni.Pos) * Cohesion;
+                }
+            }
+        }
         #endregion
 
         #region collision and stuff
@@ -445,6 +589,61 @@ namespace BreadLibrary.Core.SoftBodySim
             => 0.5f * ((b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X));
 
         private ref Node NodesRef(int i) => ref System.Runtime.InteropServices.CollectionsMarshal.AsSpan(Nodes)[i];
+
+        private Point CellOf(Vector2 p)
+        {
+            int cs = (int)KernelRadius;
+            return new Point((int)MathF.Floor(p.X / cs), (int)MathF.Floor(p.Y / cs));
+        }
+
+        private void BuildGrid()
+        {
+            _cells.Clear();
+            for (int i = 0; i < Nodes.Count; i++)
+            {
+                var c = CellOf(Nodes[i].Pos);
+                if (!_cells.TryGetValue(c, out var list))
+                    _cells[c] = list = new List<int>(8);
+                list.Add(i);
+            }
+        }
+
+        private void GetNeighbors(int i)
+        {
+            _neighbors.Clear();
+            var pi = Nodes[i].Pos;
+            var c = CellOf(pi);
+
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    var cc = new Point(c.X + dx, c.Y + dy);
+                    if (!_cells.TryGetValue(cc, out var list))
+                        continue;
+
+                    for (int k = 0; k < list.Count; k++)
+                    {
+                        int j = list[k];
+                        if (j == i) continue;
+                        if (Vector2.DistanceSquared(pi, Nodes[j].Pos) <= KernelRadius * KernelRadius)
+                            _neighbors.Add(j);
+                    }
+                }
+        }
+        private float WPoly6(float r, float h)
+        {
+            if (r >= h) return 0f;
+            float x = (h * h - r * r);
+            return x * x * x; // unnormalized; fine for game goo
+        }
+
+        private Vector2 GradSpiky(Vector2 rij, float r, float h)
+        {
+            if (r <= 1e-5f || r >= h) return Vector2.Zero;
+            float x = (h - r);
+            // direction * x^2 (unnormalized)
+            return (rij / r) * (x * x);
+        }
         #endregion
     }
 

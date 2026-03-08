@@ -1,8 +1,21 @@
 ﻿
 using System.Runtime.CompilerServices;
 
-public struct IKSkeleton
+public sealed class IKSkeleton
 {
+    public readonly struct JointSetup
+    {
+        public readonly float Length;
+        public readonly float CenterDeg;
+        public readonly float SwingDeg;
+
+        public JointSetup(float length, float centerDeg, float swingDeg)
+        {
+            Length = length;
+            CenterDeg = centerDeg;
+            SwingDeg = swingDeg;
+        }
+    }
     public struct Constraints()
     {
         public float MinAngle = -MathF.PI;
@@ -16,21 +29,17 @@ public struct IKSkeleton
         private Vector2 _;
     }
 
-    public void SetPosition(int index, Vector2 position)
-    {
-        _positions[index] = position;
-    }
     public bool SolveFailed { get; private set; }
 
     public float FinalDistance { get; private set; }
 
-    public readonly int JointCount => _options.Length;
+    public int JointCount => _options.Length;
 
-    public readonly int PositionCount => JointCount + 1;
+    public int PositionCount => JointCount + 1;
 
     private const int MaxJointCount = 16;
 
-    public (float length, Constraints constraints)[] _options;
+    private readonly (float length, Constraints constraints)[] _options;
 
     private PositionData _previousPositions;
 
@@ -38,15 +47,11 @@ public struct IKSkeleton
 
     public float _maxDistance;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public readonly Vector2 Position(int index)
+    public Vector2 Position(int index)
     {
         return _positions[index];
     }
-    public void setPosition(int index, Vector2 pos)
-    {
-        _positions[index] = pos;
-    }
+
     public IKSkeleton(params (float, Constraints)[] options)
     {
         if (options.Length > MaxJointCount)
@@ -61,10 +66,31 @@ public struct IKSkeleton
             _maxDistance += length;
         }
     }
+    public IKSkeleton(params JointSetup[] joints)
+    {
+        if (joints.Length > MaxJointCount)
+            throw new Exception($"MaxJointCount is less than provided options ({joints.Length}).");
+
+        _options = new (float, Constraints)[joints.Length];
+
+        for (int i = 0; i < joints.Length; i++)
+        {
+            var j = joints[i];
+            var c = FromCentered(j.CenterDeg, j.SwingDeg);
+
+            _options[i] = (j.Length, c);
+            _maxDistance += j.Length;
+        }
+    }
+
 
     // http://www.andreasaristidou.com/FABRIK.html 
     public void Update(Vector2 startPosition, Vector2 targetEndPosition)
     {
+        if (_positions[0] == default)
+        {
+            InitializePositions(startPosition);
+        }
         _previousPositions = _positions;
         SolveFailed = false;
 
@@ -169,20 +195,6 @@ public struct IKSkeleton
         return distance;
     }
 
-
-    /// <summary>
-    /// attempts to update the entire skeleton's constraints based on the inputted constraint.
-    /// </summary>
-    /// <param name="constraint"></param>
-    public void SetConstraints((float, Constraints)[] options)
-    {
-        _options = options;
-    }
-    public (float, Constraints)[] GetConstraints()
-    {
-        return _options;
-
-    }
     /// <summary>
     ///     attempts to mutate the values stored inside this limb's _options tuple.
     /// </summary>
@@ -204,10 +216,10 @@ public struct IKSkeleton
 
         return MathHelper.ToDegrees(max - min);
     }
-   
 
     public float GetSolvedJointAngle(int joint, Vector2 startPosition)
     {
+        // Root-relative angle reconstruction (matches solver logic)
         float rootAngle = 0f;
 
         if (joint > 0)
@@ -234,5 +246,37 @@ public struct IKSkeleton
             SetConstraint(i, angle, angle);
         }
     }
+    private static Constraints FromCentered(float centerDeg, float swingDeg)
+    {
+        float center = MathHelper.ToRadians(centerDeg);
+        float swing = MathHelper.ToRadians(swingDeg);
 
+        return new Constraints
+        {
+            MinAngle = center - swing,
+            MaxAngle = center + swing
+        };
+    }
+    /// <summary>
+    /// attempts to set the position of the leg upon first being created, inorder to fight potential 0,0.
+    /// </summary>
+    /// <param name="origin"></param>
+    private void InitializePositions(Vector2 origin)
+    {
+        _positions[0] = origin;
+
+        float angle = 0f;
+
+        for (int i = 0; i < JointCount; i++)
+        {
+            angle += (_options[i].constraints.MinAngle +
+                      _options[i].constraints.MaxAngle) * 0.5f;
+
+            _positions[i + 1] =
+                _positions[i] +
+                angle.ToRotationVector2() * _options[i].length;
+        }
+
+        _previousPositions = _positions;
+    }
 }

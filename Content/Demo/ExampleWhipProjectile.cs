@@ -22,7 +22,7 @@ namespace BreadLibrary.Content.Demo
             Projectile.aiStyle = -1;
         }
 
-        public override SoundStyle WhipCrack_SFX => SoundID.AbigailAttack;
+        public override SoundStyle? WhipCrack_SFX => SoundID.AbigailAttack;
         public override void Prepare()
         {
             AddHitEffects(BuffID.Electrified);

@@ -33,22 +33,31 @@ namespace BreadLibrary.Content
                 NPC.TopRight.X - meshWidth/2,
                 NPC.Bottom.Y - meshHeight/2
             );
-            int[,] grid = SoftbodyBuilder.CreateSquareLattice(
-                 sim,
-                 origin,
-                 w,
-                 h,
-                 spacing,
-                 60f,
-                 6f
-             );
+            int[,] grid = SoftbodyBuilder.CreateCohesionBlob(
+                sim,
+                NPC.Center,
+                20,
+                20,
+                20f,
+                60f,
+                6f,
+                neighborRange: 1
+            );
 
             body = new SoftbodyInstance(sim, MaterialLibrary.Flesh());
 
             body.NodeGrid = grid;
             body.GridWidth = w;
             body.GridHeight = h;
-            body.Sim.Viscosity = 0.002f;
+
+            sim.Mat.StructuralStiffness = 0.1f;
+            sim.Mat.ShearStiffness = 0f;
+            sim.Mat.BendStiffness = 0f;
+            sim.Mat.AreaStiffness = 0f;
+            sim.Mat.AttachmentStiffness = 0.2f;
+
+            sim.Viscosity = 0.03f;
+            sim.Pressure = 0.002f;
             body.AttachCenterCrossToNPC(grid, NPC);
 
             // Attach top row of nodes to NPC
@@ -57,7 +66,7 @@ namespace BreadLibrary.Content
             for (int x = 0; x < 41; x++)
                 anchors.Add(x * 41 + 0);
 
-            body.AttachToNPC(NPC, -new Vector2(NPC.width/2, NPC.height), anchors);
+            //body.AttachToNPC(NPC, -new Vector2(NPC.width/2, NPC.height), anchors);
 
             SoftbodySystem.Instances.Add(body);
         }

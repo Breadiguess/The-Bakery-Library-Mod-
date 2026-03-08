@@ -269,7 +269,92 @@ namespace BreadLibrary.Core.SoftBodySim
         }
 
 
+        public static int[,] CreateCohesionBlob(
+    SoftbodySim sim,
+    Vector2 center,
+    int countX,
+    int countY,
+    float spacing,
+    float mass,
+    float radius,
+    int neighborRange = 1)
+        {
+            int[,] ids = new int[countX, countY];
 
+            // --- create particles ---
+            for (int x = 0; x < countX; x++)
+                for (int y = 0; y < countY; y++)
+                {
+                    Vector2 pos = center +
+                        new Vector2(
+                            (x - countX * 0.5f) * spacing,
+                            (y - countY * 0.5f) * spacing
+                        );
+
+                    ids[x, y] = sim.AddNode(pos, mass, radius);
+                }
+
+            // --- cohesion only ---
+            for (int x = 0; x < countX; x++)
+                for (int y = 0; y < countY; y++)
+                {
+                    int a = ids[x, y];
+
+                    for (int dx = -neighborRange; dx <= neighborRange; dx++)
+                        for (int dy = -neighborRange; dy <= neighborRange; dy++)
+                        {
+                            if (dx == 0 && dy == 0)
+                                continue;
+
+                            int nx = x + dx;
+                            int ny = y + dy;
+
+                            if (nx < 0 || ny < 0 || nx >= countX || ny >= countY)
+                                continue;
+
+                            int b = ids[nx, ny];
+
+                            float rest =
+                                Vector2.Distance(
+                                    sim.Nodes[a].Pos,
+                                    sim.Nodes[b].Pos);
+
+                            sim.AddLink(a, b,
+                                sim.Mat.StructuralStiffness * 0.2f,
+                                SoftbodySim.ConstraintKind.Structural);
+                        }
+                }
+
+            return ids;
+        }
+
+
+
+
+
+        public static List<int> CreateParticleBlob(
+    SoftbodySim sim,
+    Vector2 center,
+    int count,
+    float radiusWorld,
+    float mass,
+    float particleRadius)
+        {
+            var ids = new List<int>(count);
+            var rand = Main.rand;
+
+            for (int i = 0; i < count; i++)
+            {
+                // random point in circle
+                float a = rand.NextFloat() * MathHelper.TwoPi;
+                float r = radiusWorld * MathF.Sqrt(rand.NextFloat());
+                Vector2 pos = center + new Vector2(MathF.Cos(a), MathF.Sin(a)) * r;
+
+                ids.Add(sim.AddNode(pos, mass, particleRadius));
+            }
+
+            return ids;
+        }
     }
 }
 

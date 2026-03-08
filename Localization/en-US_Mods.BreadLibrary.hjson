@@ -21,4 +21,7 @@ Projectiles: {
 	MultiLash_Whip.DisplayName: Multi Lash_ Whip
 }
 
-NPCs.SoftBodyNPC.DisplayName: Soft Body N P C
+NPCs: {
+	SoftBodyNPC.DisplayName: Soft Body N P C
+	JacobianIKAnchorNPC.DisplayName: Jacobian I K Anchor N P C
+}
