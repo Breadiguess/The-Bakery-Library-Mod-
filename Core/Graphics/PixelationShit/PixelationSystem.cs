@@ -1,296 +1,268 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace BreadLibrary.Core.Graphics
-{
+﻿
     using System;
     using System.Collections.Generic;
+    using global::BreadLibrary.Core.Graphics.PixelationShit;
     using Microsoft.Xna.Framework;
     using Microsoft.Xna.Framework.Graphics;
     using Terraria;
     using Terraria.ModLoader;
 
-    namespace BreadLibrary.Core.Graphics
+namespace BreadLibrary.Core.Graphics
+{
+    public interface IDrawPixellated
     {
-        public interface IDrawPixellated
+        PixelLayer PixelLayer { get; }
+        bool ShouldDrawPixelated => true;
+        void DrawPixelated(SpriteBatch spriteBatch);
+    }
+
+    /// <summary>
+    /// Use this for player-bound visuals instead of trying to force ordinary PlayerDrawLayers into the RT.
+    /// </summary>
+    public interface IPlayerPixelatedDrawer
+    {
+        PixelLayer PixelLayer { get; }
+        bool IsActive(Player player);
+        void DrawPixelated(Player player, SpriteBatch spriteBatch);
+    }
+
+    internal sealed class PlayerPixelWrapper : IDrawPixellated
+    {
+        public readonly Player Player;
+        public readonly IPlayerPixelatedDrawer Drawer;
+
+        public PlayerPixelWrapper(Player player, IPlayerPixelatedDrawer drawer)
         {
-            PixelLayer PixelLayer { get; }
-            bool ShouldDrawPixelated => true;
-            void DrawPixelated(SpriteBatch spriteBatch);
+            Player = player;
+            Drawer = drawer;
         }
+
+        public PixelLayer PixelLayer => Drawer.PixelLayer;
+        public bool ShouldDrawPixelated => Player.active && !Player.dead && Drawer.IsActive(Player);
+
+        public void DrawPixelated(SpriteBatch spriteBatch)
+        {
+            Drawer.DrawPixelated(Player, spriteBatch);
+        }
+    }
+
+    [Autoload(Side = ModSide.Client)]
+    public sealed class PixelationSystem : ModSystem
+    {
+        private static readonly List<IDrawPixellated> BehindTilesDraws = new();
+        private static readonly List<IDrawPixellated> AboveTilesDraws = new();
+        private static readonly List<IDrawPixellated> AboveNPCsDraws = new();
+        private static readonly List<IDrawPixellated> AboveProjectilesDraws = new();
+        private static readonly List<IDrawPixellated> AbovePlayersDraws = new();
+
+        private static RenderTarget2D behindTilesTarget;
+        private static RenderTarget2D aboveTilesTarget;
+        private static RenderTarget2D aboveNPCsTarget;
+        private static RenderTarget2D aboveProjectilesTarget;
+        private static RenderTarget2D abovePlayersTarget;
+
+        private static int preparedFrame = -1;
+        private static int targetWidth = -1;
+        private static int targetHeight = -1;
 
         /// <summary>
-        /// Use this for player-bound visuals instead of trying to force ordinary PlayerDrawLayers into the RT.
+        /// Lower = chunkier pixels. 2 means half-resolution targets.
         /// </summary>
-        public interface IPlayerPixelatedDrawer
+        public static int PixelScale => 2;
+
+        /// <summary>
+        /// Global registration point for anything that wants to add custom pixelated draws.
+        /// </summary>
+        public static event Action<List<IDrawPixellated>> CollectPixelDrawsEvent;
+
+        /// <summary>
+        /// Registration point for player-linked pixel drawers.
+        /// </summary>
+        public static event Action<Player, List<IPlayerPixelatedDrawer>> CollectPlayerPixelDrawersEvent;
+
+        public override void Load()
         {
-            PixelLayer PixelLayer { get; }
-            bool IsActive(Player player);
-            void DrawPixelated(Player player, SpriteBatch spriteBatch);
+            if (Main.dedServ)
+                return;
+            On_Main.DoDraw += PrepareTargetsBeforeDoDraw;
+            //DrawHooks.DrawBehindWallsEvent += EnsurePrepared;
+            DrawHooks.DrawBehindTilesEvent += DrawBehindTilesTarget;
+            DrawHooks.DrawAboveTilesEvent += DrawAboveTilesTarget;
+            DrawHooks.DrawAboveNPCsEvent += DrawAboveNPCsTarget;
+            DrawHooks.DrawAboveProjectilesEvent += DrawAboveProjectilesTarget;
+            DrawHooks.DrawAbovePlayersEvent += DrawAbovePlayersTarget;
         }
 
-        internal sealed class PlayerPixelWrapper : IDrawPixellated
+        public override void Unload()
         {
-            public readonly Player Player;
-            public readonly IPlayerPixelatedDrawer Drawer;
+            //DrawHooks.DrawBehindWallsEvent -= EnsurePrepared;
+            DrawHooks.DrawBehindTilesEvent -= DrawBehindTilesTarget;
+            DrawHooks.DrawAboveTilesEvent -= DrawAboveTilesTarget;
+            DrawHooks.DrawAboveNPCsEvent -= DrawAboveNPCsTarget;
+            DrawHooks.DrawAboveProjectilesEvent -= DrawAboveProjectilesTarget;
+            DrawHooks.DrawAbovePlayersEvent -= DrawAbovePlayersTarget;
 
-            public PlayerPixelWrapper(Player player, IPlayerPixelatedDrawer drawer)
+            CollectPixelDrawsEvent = null;
+            CollectPlayerPixelDrawersEvent = null;
+
+            DisposeTarget(ref behindTilesTarget);
+            DisposeTarget(ref aboveTilesTarget);
+            DisposeTarget(ref aboveNPCsTarget);
+            DisposeTarget(ref aboveProjectilesTarget);
+            DisposeTarget(ref abovePlayersTarget);
+        }
+
+        public static void Queue(IDrawPixellated draw)
+        {
+            if (draw is null || !draw.ShouldDrawPixelated)
+                return;
+
+            switch (draw.PixelLayer)
             {
-                Player = player;
-                Drawer = drawer;
-            }
-
-            public PixelLayer PixelLayer => Drawer.PixelLayer;
-            public bool ShouldDrawPixelated => Player.active && !Player.dead && Drawer.IsActive(Player);
-
-            public void DrawPixelated(SpriteBatch spriteBatch)
-            {
-                Drawer.DrawPixelated(Player, spriteBatch);
+                case PixelLayer.BehindTiles:
+                    BehindTilesDraws.Add(draw);
+                    break;
+                case PixelLayer.AboveTiles:
+                    AboveTilesDraws.Add(draw);
+                    break;
+                case PixelLayer.AboveNPCs:
+                    AboveNPCsDraws.Add(draw);
+                    break;
+                case PixelLayer.AboveProjectiles:
+                    AboveProjectilesDraws.Add(draw);
+                    break;
+                case PixelLayer.AbovePlayer:
+                    AbovePlayersDraws.Add(draw);
+                    break;
             }
         }
 
-        [Autoload(Side = ModSide.Client)]
-        public sealed class PixelationSystem : ModSystem
+        private static void EnsurePrepared()
         {
-            private static readonly List<IDrawPixellated> BehindTilesDraws = new();
-            private static readonly List<IDrawPixellated> AboveTilesDraws = new();
-            private static readonly List<IDrawPixellated> AboveNPCsDraws = new();
-            private static readonly List<IDrawPixellated> AboveProjectilesDraws = new();
-            private static readonly List<IDrawPixellated> AbovePlayersDraws = new();
+            if (Main.gameMenu || Main.dedServ)
+                return;
 
-            private static RenderTarget2D behindTilesTarget;
-            private static RenderTarget2D aboveTilesTarget;
-            private static RenderTarget2D aboveNPCsTarget;
-            private static RenderTarget2D aboveProjectilesTarget;
-            private static RenderTarget2D abovePlayersTarget;
+            int frame = (int)Main.GameUpdateCount;
+            if (preparedFrame == frame)
+                return;
 
-            private static int preparedFrame = -1;
-            private static int targetWidth = -1;
-            private static int targetHeight = -1;
+            preparedFrame = frame;
 
-            /// <summary>
-            /// Lower = chunkier pixels. 2 means half-resolution targets.
-            /// </summary>
-            public static int PixelScale => 2;
+            EnsureTargets();
+            CollectAllDrawRequests();
+            DrawQueuesToTargets();
+            Main.graphics.GraphicsDevice.SetRenderTarget(null);
+        }
 
-            /// <summary>
-            /// Global registration point for anything that wants to add custom pixelated draws.
-            /// </summary>
-            public static event Action<List<IDrawPixellated>> CollectPixelDrawsEvent;
+        private static void EnsureTargets()
+        {
+            int desiredWidth = Math.Max(1, Main.screenWidth / PixelScale);
+            int desiredHeight = Math.Max(1, Main.screenHeight / PixelScale);
 
-            /// <summary>
-            /// Registration point for player-linked pixel drawers.
-            /// </summary>
-            public static event Action<Player, List<IPlayerPixelatedDrawer>> CollectPlayerPixelDrawersEvent;
-
-            public override void Load()
+            if (desiredWidth == targetWidth && desiredHeight == targetHeight &&
+                behindTilesTarget is not null &&
+                !behindTilesTarget.IsDisposed)
             {
-                if (Main.dedServ)
-                    return;
-                On_Main.DoDraw += PrepareTargetsBeforeDoDraw;
-                //DrawHooks.DrawBehindWallsEvent += EnsurePrepared;
-                DrawHooks.DrawBehindTilesEvent += DrawBehindTilesTarget;
-                DrawHooks.DrawAboveTilesEvent += DrawAboveTilesTarget;
-                DrawHooks.DrawAboveNPCsEvent += DrawAboveNPCsTarget;
-                DrawHooks.DrawAboveProjectilesEvent += DrawAboveProjectilesTarget;
-                DrawHooks.DrawAbovePlayersEvent += DrawAbovePlayersTarget;
+                return;
             }
 
-            public override void Unload()
+            targetWidth = desiredWidth;
+            targetHeight = desiredHeight;
+
+            DisposeTarget(ref behindTilesTarget);
+            DisposeTarget(ref aboveTilesTarget);
+            DisposeTarget(ref aboveNPCsTarget);
+            DisposeTarget(ref aboveProjectilesTarget);
+            DisposeTarget(ref abovePlayersTarget);
+
+            GraphicsDevice gd = Main.instance.GraphicsDevice;
+
+            behindTilesTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
+            aboveTilesTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
+            aboveNPCsTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
+            aboveProjectilesTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
+            abovePlayersTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
+        }
+
+        private static void CollectAllDrawRequests()
+        {
+            BehindTilesDraws.Clear();
+            AboveTilesDraws.Clear();
+            AboveNPCsDraws.Clear();
+            AboveProjectilesDraws.Clear();
+            AbovePlayersDraws.Clear();
+
+            // Projectiles
+            for (int i = 0; i < Main.maxProjectiles; i++)
             {
-                //DrawHooks.DrawBehindWallsEvent -= EnsurePrepared;
-                DrawHooks.DrawBehindTilesEvent -= DrawBehindTilesTarget;
-                DrawHooks.DrawAboveTilesEvent -= DrawAboveTilesTarget;
-                DrawHooks.DrawAboveNPCsEvent -= DrawAboveNPCsTarget;
-                DrawHooks.DrawAboveProjectilesEvent -= DrawAboveProjectilesTarget;
-                DrawHooks.DrawAbovePlayersEvent -= DrawAbovePlayersTarget;
+                Projectile proj = Main.projectile[i];
+                if (!proj.active || proj.ModProjectile is null)
+                    continue;
 
-                CollectPixelDrawsEvent = null;
-                CollectPlayerPixelDrawersEvent = null;
-
-                DisposeTarget(ref behindTilesTarget);
-                DisposeTarget(ref aboveTilesTarget);
-                DisposeTarget(ref aboveNPCsTarget);
-                DisposeTarget(ref aboveProjectilesTarget);
-                DisposeTarget(ref abovePlayersTarget);
+                if (proj.ModProjectile is IDrawPixellated pixelProj && pixelProj.ShouldDrawPixelated)
+                    Queue(pixelProj);
             }
 
-            public static void Queue(IDrawPixellated draw)
+            // NPCs
+            for (int i = 0; i < Main.maxNPCs; i++)
             {
-                if (draw is null || !draw.ShouldDrawPixelated)
-                    return;
+                NPC npc = Main.npc[i];
+                if (!npc.active || npc.ModNPC is null)
+                    continue;
 
-                switch (draw.PixelLayer)
+                if (npc.ModNPC is IDrawPixellated pixelNpc && pixelNpc.ShouldDrawPixelated)
+                    Queue(pixelNpc);
+            }
+
+            // Custom/player-linked drawers
+            if (CollectPlayerPixelDrawersEvent is not null)
+            {
+                List<IPlayerPixelatedDrawer> drawers = new();
+
+                for (int i = 0; i < Main.maxPlayers; i++)
                 {
-                    case PixelLayer.BehindTiles:
-                        BehindTilesDraws.Add(draw);
-                        break;
-                    case PixelLayer.AboveTiles:
-                        AboveTilesDraws.Add(draw);
-                        break;
-                    case PixelLayer.AboveNPCs:
-                        AboveNPCsDraws.Add(draw);
-                        break;
-                    case PixelLayer.AboveProjectiles:
-                        AboveProjectilesDraws.Add(draw);
-                        break;
-                    case PixelLayer.AbovePlayer:
-                        AbovePlayersDraws.Add(draw);
-                        break;
-                }
-            }
-
-            private static void EnsurePrepared()
-            {
-                if (Main.gameMenu || Main.dedServ)
-                    return;
-
-                int frame = (int)Main.GameUpdateCount;
-                if (preparedFrame == frame)
-                    return;
-
-                preparedFrame = frame;
-
-                EnsureTargets();
-                CollectAllDrawRequests();
-                DrawQueuesToTargets();
-                Main.graphics.GraphicsDevice.SetRenderTarget(null);
-            }
-
-            private static void EnsureTargets()
-            {
-                int desiredWidth = Math.Max(1, Main.screenWidth / PixelScale);
-                int desiredHeight = Math.Max(1, Main.screenHeight / PixelScale);
-
-                if (desiredWidth == targetWidth && desiredHeight == targetHeight &&
-                    behindTilesTarget is not null &&
-                    !behindTilesTarget.IsDisposed)
-                {
-                    return;
-                }
-
-                targetWidth = desiredWidth;
-                targetHeight = desiredHeight;
-
-                DisposeTarget(ref behindTilesTarget);
-                DisposeTarget(ref aboveTilesTarget);
-                DisposeTarget(ref aboveNPCsTarget);
-                DisposeTarget(ref aboveProjectilesTarget);
-                DisposeTarget(ref abovePlayersTarget);
-
-                GraphicsDevice gd = Main.instance.GraphicsDevice;
-
-                behindTilesTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
-                aboveTilesTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
-                aboveNPCsTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
-                aboveProjectilesTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
-                abovePlayersTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
-            }
-
-            private static void CollectAllDrawRequests()
-            {
-                BehindTilesDraws.Clear();
-                AboveTilesDraws.Clear();
-                AboveNPCsDraws.Clear();
-                AboveProjectilesDraws.Clear();
-                AbovePlayersDraws.Clear();
-
-                // Projectiles
-                for (int i = 0; i < Main.maxProjectiles; i++)
-                {
-                    Projectile proj = Main.projectile[i];
-                    if (!proj.active || proj.ModProjectile is null)
+                    Player player = Main.player[i];
+                    if (player is null || !player.active)
                         continue;
 
-                    if (proj.ModProjectile is IDrawPixellated pixelProj && pixelProj.ShouldDrawPixelated)
-                        Queue(pixelProj);
-                }
+                    drawers.Clear();
+                    CollectPlayerPixelDrawersEvent.Invoke(player, drawers);
 
-                // NPCs
-                for (int i = 0; i < Main.maxNPCs; i++)
-                {
-                    NPC npc = Main.npc[i];
-                    if (!npc.active || npc.ModNPC is null)
-                        continue;
-
-                    if (npc.ModNPC is IDrawPixellated pixelNpc && pixelNpc.ShouldDrawPixelated)
-                        Queue(pixelNpc);
-                }
-
-                // Custom/player-linked drawers
-                if (CollectPlayerPixelDrawersEvent is not null)
-                {
-                    List<IPlayerPixelatedDrawer> drawers = new();
-
-                    for (int i = 0; i < Main.maxPlayers; i++)
+                    for (int j = 0; j < drawers.Count; j++)
                     {
-                        Player player = Main.player[i];
-                        if (player is null || !player.active)
+                        IPlayerPixelatedDrawer drawer = drawers[j];
+                        if (drawer is null || !drawer.IsActive(player))
                             continue;
 
-                        drawers.Clear();
-                        CollectPlayerPixelDrawersEvent.Invoke(player, drawers);
-
-                        for (int j = 0; j < drawers.Count; j++)
-                        {
-                            IPlayerPixelatedDrawer drawer = drawers[j];
-                            if (drawer is null || !drawer.IsActive(player))
-                                continue;
-
-                            Queue(new PlayerPixelWrapper(player, drawer));
-                        }
+                        Queue(new PlayerPixelWrapper(player, drawer));
                     }
                 }
-
-                // Anything else a mod wants to push in manually
-                CollectPixelDrawsEvent?.Invoke(AbovePlayersDraws);
             }
 
-            private static void DrawQueuesToTargets()
+            // Anything else a mod wants to push in manually
+            CollectPixelDrawsEvent?.Invoke(AbovePlayersDraws);
+        }
+
+        private static void DrawQueuesToTargets()
+        {
+            DrawQueueToTarget(behindTilesTarget, BehindTilesDraws);
+            DrawQueueToTarget(aboveTilesTarget, AboveTilesDraws);
+            DrawQueueToTarget(aboveNPCsTarget, AboveNPCsDraws);
+            DrawQueueToTarget(aboveProjectilesTarget, AboveProjectilesDraws);
+            DrawQueueToTarget(abovePlayersTarget, AbovePlayersDraws);
+        }
+
+        private static void DrawQueueToTarget(RenderTarget2D target, List<IDrawPixellated> queue)
+        {
+            if (target is null)
+                return;
+
+            GraphicsDevice gd = Main.instance.GraphicsDevice;
+            gd.SetRenderTarget(target);
+            gd.Clear(Color.Transparent);
+
+            if (queue.Count > 0)
             {
-                DrawQueueToTarget(behindTilesTarget, BehindTilesDraws);
-                DrawQueueToTarget(aboveTilesTarget, AboveTilesDraws);
-                DrawQueueToTarget(aboveNPCsTarget, AboveNPCsDraws);
-                DrawQueueToTarget(aboveProjectilesTarget, AboveProjectilesDraws);
-                DrawQueueToTarget(abovePlayersTarget, AbovePlayersDraws);
-            }
-
-            private static void DrawQueueToTarget(RenderTarget2D target, List<IDrawPixellated> queue)
-            {
-                if (target is null)
-                    return;
-
-                GraphicsDevice gd = Main.instance.GraphicsDevice;
-                gd.SetRenderTarget(target);
-                gd.Clear(Color.Transparent);
-
-                if (queue.Count > 0)
-                {
-                    Main.spriteBatch.Begin(
-                        SpriteSortMode.Deferred,
-                        BlendState.AlphaBlend,
-                        SamplerState.PointClamp,
-                        DepthStencilState.None,
-                        RasterizerState.CullNone,
-                        null,
-                        Matrix.CreateScale(1f / PixelScale, 1f / PixelScale, 1f));
-
-                    for (int i = 0; i < queue.Count; i++)
-                        queue[i].DrawPixelated(Main.spriteBatch);
-
-                    Main.spriteBatch.End();
-                }
-
-                gd.SetRenderTarget(null);
-            }
-            private static void DrawTargetBack(RenderTarget2D target, List<IDrawPixellated> queue)
-            {
-                if (target is null || queue.Count == 0)
-                    return;
-
                 Main.spriteBatch.Begin(
                     SpriteSortMode.Deferred,
                     BlendState.AlphaBlend,
@@ -298,50 +270,71 @@ namespace BreadLibrary.Core.Graphics
                     DepthStencilState.None,
                     RasterizerState.CullNone,
                     null,
-                    Main.GameViewMatrix.ZoomMatrix);
+                    Matrix.CreateScale(1f / PixelScale, 1f / PixelScale, 1f));
 
-                Main.spriteBatch.Draw(
-                    target,
-                    Vector2.Zero,
-                    null,
-                    Color.White,
-                    0f,
-                    Vector2.Zero,
-                    PixelScale,
-                    SpriteEffects.None,
-                    0f);
+                for (int i = 0; i < queue.Count; i++)
+                    queue[i].DrawPixelated(Main.spriteBatch);
 
                 Main.spriteBatch.End();
             }
-            private void PrepareTargetsBeforeDoDraw(On_Main.orig_DoDraw orig, Main self, GameTime gameTime)
-            {
-                if (!Main.dedServ && !Main.gameMenu)
-                    EnsurePrepared();
 
-                orig(self, gameTime);
-            }
-            private static void DrawBehindTilesTarget() =>
-                DrawTargetBack(behindTilesTarget, BehindTilesDraws);
+            gd.SetRenderTarget(null);
+        }
+        private static void DrawTargetBack(RenderTarget2D target, List<IDrawPixellated> queue)
+        {
+            if (target is null || queue.Count == 0)
+                return;
 
-            private static void DrawAboveTilesTarget() =>
-                DrawTargetBack(aboveTilesTarget, AboveTilesDraws);
+            Main.spriteBatch.Begin(
+                SpriteSortMode.Deferred,
+                BlendState.AlphaBlend,
+                SamplerState.PointClamp,
+                DepthStencilState.None,
+                RasterizerState.CullNone,
+                null,
+                Main.GameViewMatrix.ZoomMatrix);
 
-            private static void DrawAboveNPCsTarget() =>
-                DrawTargetBack(aboveNPCsTarget, AboveNPCsDraws);
+            Main.spriteBatch.Draw(
+                target,
+                Vector2.Zero,
+                null,
+                Color.White,
+                0f,
+                Vector2.Zero,
+                PixelScale,
+                SpriteEffects.None,
+                0f);
 
-            private static void DrawAboveProjectilesTarget() =>
-                DrawTargetBack(aboveProjectilesTarget, AboveProjectilesDraws);
+            Main.spriteBatch.End();
+        }
+        private void PrepareTargetsBeforeDoDraw(On_Main.orig_DoDraw orig, Main self, GameTime gameTime)
+        {
+            if (!Main.dedServ && !Main.gameMenu)
+                EnsurePrepared();
 
-            private static void DrawAbovePlayersTarget(bool _) =>
-                DrawTargetBack(abovePlayersTarget, AbovePlayersDraws);
+            orig(self, gameTime);
+        }
+        private static void DrawBehindTilesTarget() =>
+            DrawTargetBack(behindTilesTarget, BehindTilesDraws);
 
-            private static void DisposeTarget(ref RenderTarget2D target)
-            {
-                if (target is not null && !target.IsDisposed)
-                    target.Dispose();
+        private static void DrawAboveTilesTarget() =>
+            DrawTargetBack(aboveTilesTarget, AboveTilesDraws);
 
-                target = null;
-            }
+        private static void DrawAboveNPCsTarget() =>
+            DrawTargetBack(aboveNPCsTarget, AboveNPCsDraws);
+
+        private static void DrawAboveProjectilesTarget() =>
+            DrawTargetBack(aboveProjectilesTarget, AboveProjectilesDraws);
+
+        private static void DrawAbovePlayersTarget(bool _) =>
+            DrawTargetBack(abovePlayersTarget, AbovePlayersDraws);
+
+        private static void DisposeTarget(ref RenderTarget2D target)
+        {
+            if (target is not null && !target.IsDisposed)
+                target.Dispose();
+
+            target = null;
         }
     }
 }
