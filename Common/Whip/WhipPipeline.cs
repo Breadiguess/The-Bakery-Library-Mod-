@@ -1,4 +1,4 @@
-﻿using BreadLibrary.Core.Graphics;
+﻿using BreadLibrary.Core;
 
 namespace BreadLibrary.Common.Whip;
 

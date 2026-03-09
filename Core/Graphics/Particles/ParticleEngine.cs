@@ -1,6 +1,6 @@
 ﻿using Terraria.Graphics.Renderers;
 
-namespace BreadLibrary.Core.Graphics;
+namespace BreadLibrary.Core.Graphics.Particles;
 
 public class ParticleEngine : ILoadable
 {

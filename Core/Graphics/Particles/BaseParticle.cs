@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Terraria.Graphics.Renderers;
 
-namespace BreadLibrary.Core.Graphics
+namespace BreadLibrary.Core.Graphics.Particles
 {
     public abstract class BaseParticle : IPooledParticle
     {

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace BreadLibrary.Core.Graphics;
+namespace BreadLibrary.Core;
 
 /// <summary>
 ///     Represents a Bezier curve with methods to evaluate points, calculate arc lengths,
