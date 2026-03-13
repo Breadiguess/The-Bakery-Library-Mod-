@@ -1,1 +1,4 @@
-Modify this file with a description of your mod.
+This is a library mod, used for several of my mods.
+
+It features numerous things, such as a softbody simulation, a verlet simulation, a pixelation system, a easy and simple to use particle engine,
+A Simplified pipeline for creating whips, and more hopefully coming soon.

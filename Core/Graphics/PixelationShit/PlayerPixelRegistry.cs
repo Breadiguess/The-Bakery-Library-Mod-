@@ -1,9 +1,4 @@
-﻿using BreadLibrary.Core.Graphics.BreadLibrary.Core.Graphics;
-using System.Collections.Generic;
-using Terraria;
-using Terraria.ModLoader;
-
-namespace BreadLibrary.Core.Graphics.PixelationShit
+﻿namespace BreadLibrary.Core.Graphics.PixelationShit
 {
     [Autoload(Side = ModSide.Client)]
     public sealed class PlayerPixelRegistry : ModSystem

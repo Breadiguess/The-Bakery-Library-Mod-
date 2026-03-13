@@ -1,1 +1,6 @@
-This description will show up on the steam page, check out https://steamcommunity.com/comment/Guide/formattinghelp.
+This is a library mod, used for several of my mods.
+
+It features numerous things, such as a softbody simulation, a verlet simulation, a pixelation system, a easy and simple to use particle engine,
+A Simplified pipeline for creating whips, and more hopefully coming soon.
+
+github here: https://github.com/Breadiguess/The-Bakery-Library-Mod-

@@ -142,12 +142,6 @@ namespace BreadLibrary.Core.Graphics
             if (Main.gameMenu || Main.dedServ)
                 return;
 
-            int frame = (int)Main.GameUpdateCount;
-            if (preparedFrame == frame)
-                return;
-
-            preparedFrame = frame;
-
             EnsureTargets();
             CollectAllDrawRequests();
             DrawQueuesToTargets();
@@ -240,7 +234,18 @@ namespace BreadLibrary.Core.Graphics
             }
 
             // Anything else a mod wants to push in manually
-            CollectPixelDrawsEvent?.Invoke(AbovePlayersDraws);
+            if (CollectPixelDrawsEvent is not null)
+            {
+                List<IDrawPixellated> manualDraws = new();
+                CollectPixelDrawsEvent.Invoke(manualDraws);
+
+                for (int i = 0; i < manualDraws.Count; i++)
+                {
+                    IDrawPixellated draw = manualDraws[i];
+                    if (draw is not null && draw.ShouldDrawPixelated)
+                        Queue(draw);
+                }
+            }
         }
 
         private static void DrawQueuesToTargets()
@@ -296,7 +301,7 @@ namespace BreadLibrary.Core.Graphics
 
             Main.spriteBatch.Draw(
                 target,
-                Vector2.Zero,
+                Vector2.Zero - Main.LocalPlayer.velocity,
                 null,
                 Color.White,
                 0f,
@@ -331,10 +336,24 @@ namespace BreadLibrary.Core.Graphics
 
         private static void DisposeTarget(ref RenderTarget2D target)
         {
-            if (target is not null && !target.IsDisposed)
-                target.Dispose();
 
+            RenderTarget2D targetToDispose = target;
             target = null;
+
+            if (targetToDispose is null || targetToDispose.IsDisposed)
+                return;
+
+            Main.QueueMainThreadAction(() =>
+            {
+                try
+                {
+                    if (!targetToDispose.IsDisposed)
+                        targetToDispose.Dispose();
+                }
+                catch
+                {
+                }
+            });
         }
     }
 }

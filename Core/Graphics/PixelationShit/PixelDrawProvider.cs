@@ -1,0 +1,16 @@
+﻿using Terraria.ModLoader;
+
+namespace BreadLibrary.Core.Graphics.PixelationShit
+{
+    [Autoload(Side = ModSide.Client)]
+    public abstract class PixelDrawProvider : ModSystem, IPixelDrawProvider
+    {
+        public abstract void CollectPixelDraws(List<IDrawPixellated> results);
+    }
+
+    [Autoload(Side = ModSide.Client)]
+    public abstract class PlayerPixelDrawProvider : ModSystem, IPlayerPixelDrawProvider
+    {
+        public abstract void CollectPixelDraws(Player player, List<IDrawPixellated> results);
+    }
+}
