@@ -90,7 +90,7 @@ namespace BreadLibrary.Core.Utilities
             start -= Main.screenPosition;
             end -= Main.screenPosition;
 
-            Texture2D line = TextureAssets.FishingLine.Value;
+            Texture2D line = TextureAssets.MagicPixel.Value;
             float rotation = (end - start).ToRotation();
             Vector2 scale = new Vector2(Vector2.Distance(start, end) / line.Width, width / line.Height);
 

@@ -1,89 +1,313 @@
 ﻿namespace BreadLibrary.Core.SoftBodySim
 {
+    public sealed class SoftbodyCollisionSettings
+    {
+        public bool CollideWithTiles = true;
+        public bool CollideWithSoftbodies = true;
+        public bool CollideWithPlayers = false;
+        public bool CollideWithNPCs = false;
+
+        public bool IgnoreDriverEntity = true;
+
+        // 0 = only move the softbody node.
+        // 1 = try to move only the entity.
+        public float PlayerPushFactor = 0f;
+        public float NPCPushFactor = 0f;
+
+        public float EntityFriction = 0.15f;
+        public float EntityBounce = 0f;
+
+        // Inflates the entity hitbox used for collision.
+        public int EntityPadding = 0;
+
+        public int CollisionLayer = 1;
+        public int CollisionMask = ~0;
+    }
     public class SoftbodyInstance
     {
-        public SoftbodySim Sim;
+        public readonly List<int> BoundaryNodes = new();
+        public SoftbodyCollisionSettings Collision = new();
+
+        public void UpdateDriverOnly()
+        {
+            UpdateDriver();
+        }
+
+        public void RefreshCenter()
+        {
+            Center = ComputeCenter();
+            HasCenter = true;
+        }
+        public SoftbodySim Sim { get; private set; }
+
+        public Vector2 Center { get; private set; }
+        public bool HasCenter { get; private set; }
+
+        public enum TransformDriverMode
+        {
+            Manual,
+            EntityCenter
+        }
+
+        public TransformDriverMode DriverMode { get; set; } = TransformDriverMode.Manual;
+        public Entity DriverEntity { get; set; }
+        public Vector2 DriverOffset { get; set; }
+
 
         public int[,] NodeGrid;
         public int GridWidth;
         public int GridHeight;
+        
 
-        private VertexPositionColor[] _verts;
-        private short[] _indices;
+        public List<Anchor> Anchors = new();
+        private readonly List<int> _attachmentConstraintIndices = new();
 
-
-        public Entity AttachedEntity;
         public struct Anchor
         {
             public int Node;
             public Vector2 LocalOffset;
             public float LocalAngle;
+            public float Stiffness;
         }
 
-        public List<Anchor> Anchors = new();
-
-        public Vector2 LocalOffset;
-      
-        public SoftbodyInstance(SoftbodySim sim, Material material = default)
+        public SoftbodyInstance(SoftbodySim sim, TransformDriverMode driverMode = TransformDriverMode.Manual)
         {
             Sim = sim;
-            Sim.Mat = material;
-
+            DriverMode = driverMode;
         }
 
-        public void AttachToNPC(Entity npc, Vector2 Offset, List<int> nodes)
+        public void Clear()
         {
-            AttachedEntity = npc;
+            Sim.Nodes.Clear();
+            Sim.Attachments.Clear();
+            Sim.Dist.Clear();
+            Sim.Clusters.Clear();
+
             Anchors.Clear();
+            _attachmentConstraintIndices.Clear();
 
-            for(int i = 0; i< Sim.Nodes.Count; i++)
-{
-                Vector2 local = Sim.Nodes[i].Pos - npc.Center;
+            NodeGrid = null;
+            GridWidth = 0;
+            GridHeight = 0;
 
-                Sim.Attachments.Add(new SoftbodySim.AttachmentConstraint
+            vertices = null;
+            indices = null;
+        }
+        public List<int> CreateEllipseBody(Vector2 center, int count, float radiusX, float radiusY, float mass, float nodeRadius)
+        {
+            Clear();
+
+            List<int> ring = new();
+
+            for (int i = 0; i < count; i++)
+            {
+                float t = MathHelper.TwoPi * i / count;
+                Vector2 p = center + new Vector2(MathF.Cos(t) * radiusX, MathF.Sin(t) * radiusY);
+                ring.Add(Sim.AddNode(p, mass, nodeRadius));
+            }
+
+            Sim.BuildLoopLinks(ring, 1f, addBendLinks: true, bendStride: 2);
+
+            for (int i = 0; i < ring.Count; i++)
+            {
+                int[] cluster =
                 {
-                    Node = i,
-                    Target = () => npc.Center + Offset+ local.RotatedBy(0),
-                    Stiffness = 0.05f
-                });
+            ring[i],
+            ring[(i + 1) % ring.Count],
+            ring[(i + 2) % ring.Count],
+            ring[(i + 3) % ring.Count]
+        };
+
+                Sim.AddCluster(cluster, 0.9f);
+            }
+
+            BoundaryNodes.Clear();
+            BoundaryNodes.AddRange(ring);
+
+            Center = ComputeCenter();
+            HasCenter = true;
+
+            return ring;
+        }
+        public void CreateRectBody(Vector2 center, int width, int height, float spacing, float mass, float radius)
+        {
+            Clear();
+
+            GridWidth = width;
+            GridHeight = height;
+            NodeGrid = new int[width, height];
+
+            Vector2 start = center - new Vector2((width - 1) * spacing, (height - 1) * spacing) * 0.5f;
+
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    Vector2 pos = start + new Vector2(x * spacing, y * spacing);
+                    NodeGrid[x, y] = Sim.AddNode(pos, mass, radius);
+                }
+            }
+
+            BuildRectLinks();
+            BuildRectClusters();
+            BuildRectBoundary();
+
+            Center = ComputeCenter();
+            HasCenter = true;
+
+            BuildMesh();
+        }
+
+        private void BuildRectLinks()
+        {
+            for (int x = 0; x < GridWidth; x++)
+            {
+                for (int y = 0; y < GridHeight; y++)
+                {
+                    int a = NodeGrid[x, y];
+
+                    if (x + 1 < GridWidth)
+                        Sim.AddLink(a, NodeGrid[x + 1, y], 1f, SoftbodySim.ConstraintKind.Structural);
+
+                    if (y + 1 < GridHeight)
+                        Sim.AddLink(a, NodeGrid[x, y + 1], 1f, SoftbodySim.ConstraintKind.Structural);
+
+                    if (x + 1 < GridWidth && y + 1 < GridHeight)
+                        Sim.AddLink(a, NodeGrid[x + 1, y + 1], 0.9f, SoftbodySim.ConstraintKind.Structural);
+
+                    if (x + 1 < GridWidth && y - 1 >= 0)
+                        Sim.AddLink(a, NodeGrid[x + 1, y - 1], 0.9f, SoftbodySim.ConstraintKind.Structural);
+
+                    if (x + 2 < GridWidth)
+                        Sim.AddLink(a, NodeGrid[x + 2, y], 1f, SoftbodySim.ConstraintKind.Bend);
+
+                    if (y + 2 < GridHeight)
+                        Sim.AddLink(a, NodeGrid[x, y + 2], 1f, SoftbodySim.ConstraintKind.Bend);
+                }
             }
         }
-        public void AttachCenterCrossToNPC(int[,] grid, NPC npc)
+
+        private void BuildRectClusters()
         {
-            AttachedEntity = npc;
-            Sim.Attachments.Clear();
-
-            int w = grid.GetLength(0);
-            int h = grid.GetLength(1);
-
-            int cx = w / 2;
-            int cy = h / 2;
-
-            int[] xs = { cx, cx + 1, cx - 1, cx, cx };
-            int[] ys = { cy, cy, cy, cy + 1, cy - 1 };
-
-            for (int i = 0; i < 5; i++)
+            for (int x = 0; x < GridWidth - 1; x++)
             {
-                int id = grid[xs[i], ys[i]];
-                if (id == -1)
-                    continue;
-
-                Vector2 local = Sim.Nodes[id].Pos - npc.Center;
-
-                Sim.Attachments.Add(new SoftbodySim.AttachmentConstraint
+                for (int y = 0; y < GridHeight - 1; y++)
                 {
-                    Node = id,
-                    Target = () => npc.Center + local.RotatedBy(npc.rotation),
-                    Stiffness = Sim.Mat.AttachmentStiffness
-                });
+                    Span<int> cluster = stackalloc int[4]
+                    {
+                NodeGrid[x, y],
+                NodeGrid[x + 1, y],
+                NodeGrid[x + 1, y + 1],
+                NodeGrid[x, y + 1]
+            };
+
+                    Sim.AddCluster(cluster, 0.85f);
+                }
+            }
+        }
+
+        private void BuildRectBoundary()
+        {
+            BoundaryNodes.Clear();
+
+            for (int x = 0; x < GridWidth; x++)
+                BoundaryNodes.Add(NodeGrid[x, 0]);
+
+            for (int y = 1; y < GridHeight; y++)
+                BoundaryNodes.Add(NodeGrid[GridWidth - 1, y]);
+
+            if (GridHeight > 1)
+            {
+                for (int x = GridWidth - 2; x >= 0; x--)
+                    BoundaryNodes.Add(NodeGrid[x, GridHeight - 1]);
+            }
+
+            if (GridWidth > 1)
+            {
+                for (int y = GridHeight - 2; y >= 1; y--)
+                    BoundaryNodes.Add(NodeGrid[0, y]);
             }
         }
         public void Update()
         {
-           
-
+            UpdateDriver();
+            //UpdateAnchors();
             Sim.Step();
+            Center = ComputeCenter();
+            HasCenter = true;
         }
+        public void TeleportCenter(Vector2 newCenter)
+        {
+            SetCenter(newCenter, preserveVelocity: false);
+        }
+        public void SetCenter(Vector2 newCenter, bool preserveVelocity = true)
+        {
+            Vector2 oldCenter = HasCenter ? Center : ComputeCenter();
+            Vector2 delta = newCenter - oldCenter;
+
+            Translate(delta, preserveVelocity);
+            Center = newCenter;
+            HasCenter = true;
+        }
+        public Vector2 ComputeCenter()
+        {
+            if (Sim.Nodes.Count == 0)
+                return Vector2.Zero;
+
+            Vector2 sum = Vector2.Zero;
+            float totalMass = 0f;
+
+            for (int i = 0; i < Sim.Nodes.Count; i++)
+            {
+                var n = Sim.Nodes[i];
+                float mass = n.InvMass > 0f ? 1f / n.InvMass : 1f;
+                sum += n.Pos * mass;
+                totalMass += mass;
+            }
+
+            if (totalMass <= 1e-6f)
+                return Vector2.Zero;
+
+            return sum / totalMass;
+        }
+
+        public void Translate(Vector2 delta, bool preserveVelocity = true)
+        {
+            if (delta == Vector2.Zero || Sim.Nodes.Count == 0)
+                return;
+
+            for (int i = 0; i < Sim.Nodes.Count; i++)
+            {
+                ref var node = ref Sim.GetNodeRef(i);
+                node.Pos += delta;
+
+                if (preserveVelocity)
+                    node.PrevPos += delta;
+            }
+
+            if (!preserveVelocity)
+            {
+                for (int i = 0; i < Sim.Nodes.Count; i++)
+                {
+                    ref var node = ref Sim.GetNodeRef(i);
+                    node.PrevPos = node.Pos;
+                }
+            }
+
+            Center = ComputeCenter();
+            HasCenter = true;
+        }
+
+        private void UpdateDriver()
+        {
+            if (DriverMode == TransformDriverMode.EntityCenter && DriverEntity != null)
+            {
+                Vector2 targetCenter = DriverEntity.Center + DriverOffset;
+                SetCenter(targetCenter, preserveVelocity: true);
+            }
+        }
+
+        #region DrawCode
         VertexPositionColor[] vertices;
         short[] indices;
         private BasicEffect effect;
@@ -120,7 +344,7 @@
                -1f,  1f);
 
             effect.View = Main.GameViewMatrix.ZoomMatrix;
-            Vector2 pivot = AttachedEntity.Center - Main.screenPosition;
+            Vector2 pivot = Center - Main.screenPosition;
 
             effect.World = Matrix.Identity;
                 //Matrix.CreateTranslation(-pivot.X, -pivot.Y, 0f) *
@@ -147,7 +371,13 @@
                 );
             }
 
-            for (int i = 0; i < Sim.Nodes.Count - 1; i++) { Utilities.Utilities.DrawLineBetter(Main.spriteBatch, Sim.Nodes[i].Pos, Sim.Nodes[i + 1].Pos, Color.Aqua, 2f); }
+            for (int i = 0; i < Sim.Nodes.Count - 1; i++) 
+            
+            {
+                Utilities.Utilities.DrawLineBetter(Main.spriteBatch, Sim.Nodes[i].Pos, Sim.Nodes[i + 1].Pos, Color.Aqua, 2f);
+                if (i == Sim.Nodes.Count - 2)
+                    Utilities.Utilities.DrawLineBetter(Main.spriteBatch, Sim.Nodes[^1].Pos, Sim.Nodes[0].Pos, Color.Aqua, 2f);
+            }
 
 
             Main.spriteBatch.End();
@@ -193,5 +423,7 @@
 
             vertices = new VertexPositionColor[Sim.Nodes.Count];
         }
+
+        #endregion
     }
 }

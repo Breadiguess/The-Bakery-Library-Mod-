@@ -10,6 +10,7 @@
 	<ItemGroup>
 	  <Compile Remove="Common\OldBaseWhipProjectile.cs" />
 	  <Compile Remove="Content\Demo\ExampleHelmet.cs" />
+	  <Compile Remove="Core\SoftBodySim\SoftBodyBuilder.cs" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Folder Include="Common\Graphics\" />

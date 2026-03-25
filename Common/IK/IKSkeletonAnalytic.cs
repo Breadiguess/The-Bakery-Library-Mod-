@@ -29,7 +29,7 @@ namespace BreadLibrary.Common.IK
             );
 
             float cosTheta =
-            (
+            (   
                 UpperLength * UpperLength +
                 d * d -
                 LowerLength * LowerLength

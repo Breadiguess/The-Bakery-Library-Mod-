@@ -10,67 +10,113 @@ namespace BreadLibrary.Content
 {
     internal class SoftBodyNPC : ModNPC
     {
-        SoftbodyInstance body;
+        public SoftbodyInstance Body;
+
+        // Used so we can move the body by NPC motion instead of hard teleporting every frame.
+        private Vector2 _lastCenter;
+        private bool _bodyInitialized;
+
+        public override void SetStaticDefaults()
+        {
+            Main.npcFrameCount[Type] = 1;
+        }
+
         public override void SetDefaults()
         {
-            NPC.lifeMax = 300;
-            NPC.Size = new Vector2(40);
+            NPC.width = 42;
+            NPC.height = 22;
+            NPC.damage = 20;
+            NPC.defense = 4;
+            NPC.lifeMax = 120;
+            NPC.knockBackResist = 0.6f;
+            NPC.noGravity = false;
+            NPC.noTileCollide = false;
             NPC.aiStyle = NPCAIStyleID.Slime;
-           
         }
-        public override void OnSpawn(IEntitySource source)
+
+        public override void OnSpawn(Terraria.DataStructures.IEntitySource source)
         {
-
-            var sim = new SoftbodySim();
-            sim.Mat = MaterialLibrary.Jelly(); // or Jelly/Rubber/etc
-
-            int w = 10, h = 10;
-            float spacing = 9f;
-            float meshWidth = (w - 1) * spacing;
-            float meshHeight = (h - 1) * spacing;
-
-            Vector2 origin = new Vector2(
-                NPC.TopRight.X - meshWidth/2,
-                NPC.Bottom.Y - meshHeight/2
-            );
-            int[,] grid = SoftbodyBuilder.CreateCohesionBlob(
-                sim,
-                NPC.Center,
-                20,
-                20,
-                20f,
-                60f,
-                6f,
-                neighborRange: 1
-            );
-
-            body = new SoftbodyInstance(sim, MaterialLibrary.Flesh());
-
-            body.NodeGrid = grid;
-            body.GridWidth = w;
-            body.GridHeight = h;
-
-            sim.Mat.StructuralStiffness = 0.1f;
-            sim.Mat.ShearStiffness = 0f;
-            sim.Mat.BendStiffness = 0f;
-            sim.Mat.AreaStiffness = 0f;
-            sim.Mat.AttachmentStiffness = 0.2f;
-
-            sim.Viscosity = 0.03f;
-            sim.Pressure = 0.002f;
-            body.AttachCenterCrossToNPC(grid, NPC);
-
-            // Attach top row of nodes to NPC
-            List<int> anchors = new();
-
-            for (int x = 0; x < 41; x++)
-                anchors.Add(x * 41 + 0);
-
-            //body.AttachToNPC(NPC, -new Vector2(NPC.width/2, NPC.height), anchors);
-
-            SoftbodySystem.Instances.Add(body);
+            CreateBody();
+            _lastCenter = NPC.Center;
+            _bodyInitialized = true;
         }
 
+        private void CreateBody()
+        {
+            SoftbodySim sim = new();
 
+            sim.Mat.Iterations = 3;
+            sim.Mat.Damping = 0.95f;
+            sim.Mat.ShapeMatchingStiffness = 0.29f;
+            sim.Mat.StructuralStiffness = 0.05f;
+            sim.Mat.BendStiffness = 0.07f;
+           
+            Body = new SoftbodyInstance(sim);
+          
+            Body.CreateEllipseBody(
+                center: NPC.Center,
+                count: 40,
+                radiusX: 60f,
+                radiusY: 20f,
+                mass: 3f,
+                nodeRadius: 4f
+            );
+
+            Body.SetCenter(NPC.Center, preserveVelocity: false);
+            Body.DriverMode = SoftbodyInstance.TransformDriverMode.EntityCenter;
+            Body.DriverEntity = this.NPC;
+            Body.Collision.CollideWithPlayers = true;
+            Body.Collision.EntityBounce = 0f;
+            Body.Collision.IgnoreDriverEntity = true;
+            Body.Collision.PlayerPushFactor = 0;
+            SoftbodySystem.Instances.Add(Body);
+        }
+        public override void AI()
+        {
+            if (!_bodyInitialized || Body == null)
+            {
+                CreateBody();
+                _lastCenter = NPC.Center;
+                _bodyInitialized = true;
+            }
+            Body.Translate(_lastCenter);
+
+        }
+
+        private void DoMovement()
+        {
+          
+        }
+
+        public override bool PreDraw(Microsoft.Xna.Framework.Graphics.SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
+        {
+            
+            return false;
+        }
+
+        public override void HitEffect(NPC.HitInfo hit)
+        {
+            if (Body == null)
+                return;
+
+            // Kick all nodes a little on hit for extra squish.
+            Vector2 impulse = hit.HitDirection * Vector2.UnitX * 4f;
+
+            for (int i = 0; i < Body.Sim.Nodes.Count; i++)
+            {
+                ref var node = ref Body.Sim.GetNodeRef(i);
+                if (node.InvMass <= 0f)
+                    continue;
+
+                // Verlet-style impulse: offset previous position backward.
+                node.PrevPos -= impulse;
+            }
+        }
+
+        public override void OnKill()
+        {
+            Body = null;
+            _bodyInitialized = false;
+        }
     }
 }
