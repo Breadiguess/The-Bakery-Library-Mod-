@@ -8,8 +8,13 @@
 		
 	</PropertyGroup>
 	<ItemGroup>
+	  <AdditionalFiles Remove="Content\**" />
+	  <Compile Remove="Content\**" />
+	  <EmbeddedResource Remove="Content\**" />
+	  <None Remove="Content\**" />
+	</ItemGroup>
+	<ItemGroup>
 	  <Compile Remove="Common\OldBaseWhipProjectile.cs" />
-	  <Compile Remove="Content\Demo\ExampleHelmet.cs" />
 	  <Compile Remove="Core\SoftBodySim\SoftBodyBuilder.cs" />
 	</ItemGroup>
 	<ItemGroup>

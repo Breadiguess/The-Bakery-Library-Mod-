@@ -55,9 +55,11 @@ public sealed class IKSkeleton
 
     public float FinalDistance { get; private set; }
 
-    public int SegmentCount => _segmentCount;
 
+
+    public int SegmentCount => _segmentCount;
     public int JointCount => _segmentCount + 1;
+    public float MaxReach => _totalLength;
 
     public IKSkeleton(params (float length, JointLimit limit)[] segments)
     {
@@ -112,6 +114,7 @@ public sealed class IKSkeleton
     }
 
     public Vector2 GetJointPosition(int index) => _joints[index];
+    public float GetSegmentLength(int index) => _lengths[index];
 
     public float GetConstraintDegrees(int joint)
     {
@@ -119,11 +122,31 @@ public sealed class IKSkeleton
         return MathHelper.ToDegrees(limit.Max - limit.Min);
     }
 
+    public (float length, JointLimit limit)[] GetConstraints()
+    {
+        var result = new (float length, JointLimit limit)[_segmentCount];
+        for (int i = 0; i < _segmentCount; i++)
+            result[i] = (_lengths[i], _limits[i]);
+        return result;
+    }
+    public void SetConstraints((float length, JointLimit limit)[] segments)
+    {
+        if (segments == null || segments.Length != _segmentCount)
+            throw new ArgumentException("Constraint array length must match the skeleton segment count.", nameof(segments));
+
+        for (int i = 0; i < _segmentCount; i++)
+        {
+            if (Math.Abs(segments[i].length - _lengths[i]) > 0.001f)
+                throw new InvalidOperationException("SetConstraints cannot change segment lengths. Rebuild the skeleton instead.");
+
+            _limits[i] = segments[i].limit;
+        }
+    }
+
     public void SetConstraint(int joint, float minRadians, float maxRadians)
     {
         _limits[joint] = new JointLimit(minRadians, maxRadians);
     }
-
     public float GetSolvedLocalAngle(int joint, Vector2 rootPosition)
     {
         float parentAngle = GetParentWorldAngle(joint, rootPosition);
@@ -139,7 +162,16 @@ public sealed class IKSkeleton
             _limits[i] = new JointLimit(angle, angle);
         }
     }
-
+    /// <summary>
+    /// we love backwards compatibility.
+    /// basically just calls solve. why did i do this. its so stupid.
+    /// </summary>
+    /// <param name="rootPosition"></param>
+    /// <param name="targetPosition"></param>
+    public void Update(Vector2 rootPosition, Vector2 targetPosition)
+    {
+        Solve(rootPosition, targetPosition);
+    }
     public void Solve(Vector2 rootPosition, Vector2 targetPosition)
     {
         if (!_initialized)
@@ -311,4 +343,7 @@ public sealed class IKSkeleton
         for (int i = 0; i < from.Length; i++)
             to[i] = from[i];
     }
+
+
+  
 }
