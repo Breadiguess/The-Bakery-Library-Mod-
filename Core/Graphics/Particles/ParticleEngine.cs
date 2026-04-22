@@ -9,6 +9,8 @@ namespace BreadLibrary.Core.Graphics.Particles
         public static ParticleRenderer Particles = new();
         public static ParticleRenderer ShaderParticles = new();
         public static ParticleRenderer BehindProjectiles = new();
+
+        public static ParticleRenderer PixelatedParticles = new();
         public IEnumerable<IPooledParticle> ActiveParticles
         {
             get
@@ -38,6 +40,7 @@ namespace BreadLibrary.Core.Graphics.Particles
             Particles.Clear();
             ShaderParticles.Clear();
             BehindProjectiles.Clear();
+            PixelatedParticles.Clear();
         }
 
         public static void CollectPixelatedParticles(List<IDrawPixelated> results)
@@ -45,6 +48,7 @@ namespace BreadLibrary.Core.Graphics.Particles
             CollectFromRenderer(Particles, results);
             CollectFromRenderer(ShaderParticles, results);
             CollectFromRenderer(BehindProjectiles, results);
+            CollectFromRenderer(PixelatedParticles, results);
         }
 
         private static void CollectFromRenderer(ParticleRenderer renderer, List<IDrawPixelated> results)
@@ -65,6 +69,7 @@ namespace BreadLibrary.Core.Graphics.Particles
             BehindProjectiles.Update();
             ShaderParticles.Update();
             Particles.Update();
+            PixelatedParticles.Update();
         }
 
         private void DrawBehindProjectiles(On_Main.orig_DrawProjectiles orig, Main self)

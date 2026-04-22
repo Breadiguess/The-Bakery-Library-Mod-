@@ -207,7 +207,10 @@ namespace BreadLibrary.Core.Graphics
             scratchPixelDraws.Clear();
             ParticleEngine.CollectPixelatedParticles(scratchPixelDraws);
 
-
+            for(int i = 0; i< scratchPixelDraws.Count; i++)
+            {
+                Queue(scratchPixelDraws[i]);
+            }
 
             // Custom/player-linked drawers
             if (CollectPlayerPixelDrawersEvent is not null)

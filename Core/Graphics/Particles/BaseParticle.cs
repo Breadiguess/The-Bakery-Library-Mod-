@@ -9,31 +9,37 @@ using Terraria.Graphics.Renderers;
 
 namespace BreadLibrary.Core.Graphics.Particles
 {
+    /// <summary>
+    /// Controls how many Particles of the same Type can exist at the same time.
+    /// </summary>
+    /// <param name="capacity">The new capacity of the particle pool. </param>
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
     public sealed class PoolCapacityAttribute(int capacity) : Attribute
     {
+        /// <summary>
+        /// The current Capacity of the particle pool.
+        /// </summary>
         public int Capacity { get; } = capacity;
     }
 
     public abstract class BaseParticle<T> : IDrawPixelated, IPooledParticle where T : IPooledParticle, new()
     {
-        public const int DEFAULT_POOL_CAPACITY = 100;
+        public const int DEFAULT_POOL_CAPACITY = 150;
 
 
-        public bool ShouldDrawPixelated => DrawsPixellated;
-        public virtual bool DrawsPixellated
-        {
-            get;
-            set;
-        }
+        public bool ShouldDrawPixelated => DrawsPixelated;
+        public virtual bool DrawsPixelated => false;
         public static ParticlePool<T> Pool { get; } = new ParticlePool<T>(typeof(T).GetCustomAttribute<PoolCapacityAttribute>()?.Capacity ?? DEFAULT_POOL_CAPACITY, GetNewParticle);
 
         protected static T GetNewParticle() => new T();
 
         public bool IsRestingInPool { get; private set; }
 
+        /// <summary>
+        /// when this is true, the particle is removed from the renderer (and thus the world) at the end of the current frame.
+        /// </summary>
         public bool ShouldBeRemovedFromRenderer { get; protected set; }
-        public abstract PixelLayer PixelLayer { get; }        
+        public virtual PixelLayer PixelLayer { get; }        
 
 
         public virtual void FetchFromPool()
@@ -55,6 +61,8 @@ namespace BreadLibrary.Core.Graphics.Particles
         {
         }
 
-        public abstract void DrawPixelated(SpriteBatch spriteBatch);
+        public virtual void DrawPixelated(SpriteBatch spriteBatch)
+        {
+        }
     }
 }
