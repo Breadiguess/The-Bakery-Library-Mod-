@@ -25,6 +25,10 @@
     }
     public class SoftbodyInstance
     {
+
+
+
+
         public readonly List<int> BoundaryNodes = new();
         public SoftbodyCollisionSettings Collision = new();
 
@@ -42,6 +46,9 @@
 
         public Vector2 Center { get; private set; }
         public bool HasCenter { get; private set; }
+        public float DriverVelocityTransfer { get; set; } = 0.65f;
+        // If the target suddenly jumps too far, treat it as a teleport instead of injecting insane velocity.
+        public float DriverTeleportDistance { get; set; } = 96f;
 
         public enum TransformDriverMode
         {
@@ -249,6 +256,15 @@
             Center = newCenter;
             HasCenter = true;
         }
+        public void SetCenterDriven(Vector2 newCenter, float velocityTransfer = 0.65f)
+        {
+            Vector2 oldCenter = HasCenter ? Center : ComputeCenter();
+            Vector2 delta = newCenter - oldCenter;
+
+            TranslateDriven(delta, velocityTransfer);
+            Center = newCenter;
+            HasCenter = true;
+        }
         public Vector2 ComputeCenter()
         {
             if (Sim.Nodes.Count == 0)
@@ -297,13 +313,47 @@
             Center = ComputeCenter();
             HasCenter = true;
         }
+        public void TranslateDriven(Vector2 delta, float velocityTransfer = 0.65f)
+        {
+            if (delta == Vector2.Zero || Sim.Nodes.Count == 0)
+                return;
 
+            velocityTransfer = MathHelper.Clamp(velocityTransfer, 0f, 1f);
+
+            // 0 = rigid teleport-like movement, no extra jiggle
+            // 1 = full driver motion becomes inherited velocity
+            float prevCarry = 1f - velocityTransfer;
+
+            for (int i = 0; i < Sim.Nodes.Count; i++)
+            {
+                ref var node = ref Sim.GetNodeRef(i);
+
+                node.Pos += delta;
+                node.PrevPos += delta * prevCarry;
+            }
+
+            Center = ComputeCenter();
+            HasCenter = true;
+        }
         private void UpdateDriver()
         {
             if (DriverMode == TransformDriverMode.EntityCenter && DriverEntity != null)
             {
+
                 Vector2 targetCenter = DriverEntity.Center + DriverOffset;
-                SetCenter(targetCenter, preserveVelocity: true);
+                Vector2 oldCenter = HasCenter ? Center : ComputeCenter();
+                Vector2 delta = targetCenter - oldCenter;
+
+                if (delta == Vector2.Zero)
+                    return;
+
+                if (delta.LengthSquared() >= DriverTeleportDistance * DriverTeleportDistance)
+                {
+                    TeleportCenter(targetCenter);
+                    return;
+                }
+
+                SetCenterDriven(targetCenter, DriverVelocityTransfer);
             }
         }
 

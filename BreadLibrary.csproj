@@ -15,6 +15,9 @@
 	<ItemGroup>
 	  <Folder Include="Common\Graphics\" />
 	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Include="ICSharpCode.Decompiler" Version="9.1.0.7988" />
+	</ItemGroup>
 
 	<!-- References -->
 
