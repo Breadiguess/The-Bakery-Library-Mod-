@@ -1,16 +1,10 @@
 ﻿
 using BreadLibrary.Core.Graphics.Particles;
 using global::BreadLibrary.Core.Graphics.PixelationShit;
-    using Microsoft.Xna.Framework;
-    using Microsoft.Xna.Framework.Graphics;
-    using System;
-    using System.Collections.Generic;
-    using Terraria;
-    using Terraria.ModLoader;
 
 namespace BreadLibrary.Core.Graphics
 {
-    public interface IDrawPixellated
+    public interface IDrawPixelated
     {
         PixelLayer PixelLayer { get; }
         bool ShouldDrawPixelated => true;
@@ -27,7 +21,7 @@ namespace BreadLibrary.Core.Graphics
         void DrawPixelated(Player player, SpriteBatch spriteBatch);
     }
 
-    internal sealed class PlayerPixelWrapper : IDrawPixellated
+    internal sealed class PlayerPixelWrapper : IDrawPixelated
     {
         public readonly Player Player;
         public readonly IPlayerPixelatedDrawer Drawer;
@@ -50,12 +44,12 @@ namespace BreadLibrary.Core.Graphics
     [Autoload(Side = ModSide.Client)]
     public sealed class PixelationSystem : ModSystem
     {
-        private static readonly List<IDrawPixellated> BehindTilesDraws = new();
-        private static readonly List<IDrawPixellated> AboveTilesDraws = new();
-        private static readonly List<IDrawPixellated> AboveNPCsDraws = new();
-        private static readonly List<IDrawPixellated> AboveProjectilesDraws = new();
-        private static readonly List<IDrawPixellated> AbovePlayersDraws = new();
-        private static readonly List<IDrawPixellated> scratchPixelDraws = new();
+        private static readonly List<IDrawPixelated> BehindTilesDraws = new();
+        private static readonly List<IDrawPixelated> AboveTilesDraws = new();
+        private static readonly List<IDrawPixelated> AboveNPCsDraws = new();
+        private static readonly List<IDrawPixelated> AboveProjectilesDraws = new();
+        private static readonly List<IDrawPixelated> AbovePlayersDraws = new();
+        private static readonly List<IDrawPixelated> scratchPixelDraws = new();
 
         private static RenderTarget2D behindTilesTarget;
         private static RenderTarget2D aboveTilesTarget;
@@ -75,7 +69,7 @@ namespace BreadLibrary.Core.Graphics
         /// <summary>
         /// Global registration point for anything that wants to add custom pixelated draws.
         /// </summary>
-        public static event Action<List<IDrawPixellated>> CollectPixelDrawsEvent;
+        public static event Action<List<IDrawPixelated>> CollectPixelDrawsEvent;
 
         /// <summary>
         /// Registration point for player-linked pixel drawers.
@@ -114,7 +108,7 @@ namespace BreadLibrary.Core.Graphics
             DisposeTarget(ref abovePlayersTarget);
         }
 
-        public static void Queue(IDrawPixellated draw)
+        public static void Queue(IDrawPixelated draw)
         {
             if (draw is null || !draw.ShouldDrawPixelated)
                 return;
@@ -195,7 +189,7 @@ namespace BreadLibrary.Core.Graphics
                 if (!proj.active || proj.ModProjectile is null)
                     continue;
 
-                if (proj.ModProjectile is IDrawPixellated pixelProj && pixelProj.ShouldDrawPixelated)
+                if (proj.ModProjectile is IDrawPixelated pixelProj && pixelProj.ShouldDrawPixelated)
                     Queue(pixelProj);
             }
 
@@ -206,7 +200,7 @@ namespace BreadLibrary.Core.Graphics
                 if (!npc.active || npc.ModNPC is null)
                     continue;
 
-                if (npc.ModNPC is IDrawPixellated pixelNpc && pixelNpc.ShouldDrawPixelated)
+                if (npc.ModNPC is IDrawPixelated pixelNpc && pixelNpc.ShouldDrawPixelated)
                     Queue(pixelNpc);
             }
 
@@ -242,12 +236,12 @@ namespace BreadLibrary.Core.Graphics
             // Anything else a mod wants to push in manually
             if (CollectPixelDrawsEvent is not null)
             {
-                List<IDrawPixellated> manualDraws = new();
+                List<IDrawPixelated> manualDraws = new();
                 CollectPixelDrawsEvent.Invoke(manualDraws);
 
                 for (int i = 0; i < manualDraws.Count; i++)
                 {
-                    IDrawPixellated draw = manualDraws[i];
+                    IDrawPixelated draw = manualDraws[i];
                     if (draw is not null && draw.ShouldDrawPixelated)
                         Queue(draw);
                 }
@@ -263,7 +257,7 @@ namespace BreadLibrary.Core.Graphics
             DrawQueueToTarget(abovePlayersTarget, AbovePlayersDraws);
         }
 
-        private static void DrawQueueToTarget(RenderTarget2D target, List<IDrawPixellated> queue)
+        private static void DrawQueueToTarget(RenderTarget2D target, List<IDrawPixelated> queue)
         {
             if (target is null)
                 return;
@@ -291,7 +285,7 @@ namespace BreadLibrary.Core.Graphics
 
             gd.SetRenderTarget(null);
         }
-        private static void DrawTargetBack(RenderTarget2D target, List<IDrawPixellated> queue)
+        private static void DrawTargetBack(RenderTarget2D target, List<IDrawPixelated> queue)
         {
             if (target is null || queue.Count == 0)
                 return;

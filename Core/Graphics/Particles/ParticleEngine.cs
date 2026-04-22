@@ -40,21 +40,21 @@ namespace BreadLibrary.Core.Graphics.Particles
             BehindProjectiles.Clear();
         }
 
-        public static void CollectPixelatedParticles(List<IDrawPixellated> results)
+        public static void CollectPixelatedParticles(List<IDrawPixelated> results)
         {
             CollectFromRenderer(Particles, results);
             CollectFromRenderer(ShaderParticles, results);
             CollectFromRenderer(BehindProjectiles, results);
         }
 
-        private static void CollectFromRenderer(ParticleRenderer renderer, List<IDrawPixellated> results)
+        private static void CollectFromRenderer(ParticleRenderer renderer, List<IDrawPixelated> results)
         {
             if (renderer is null)
                 return;
 
             foreach (IPooledParticle particle in renderer.Particles)
             {
-                if (particle is IDrawPixellated pixel && pixel.ShouldDrawPixelated)
+                if (particle is IDrawPixelated pixel && pixel.ShouldDrawPixelated)
                     results.Add(pixel);
             }
         }

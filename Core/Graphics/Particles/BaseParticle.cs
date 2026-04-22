@@ -15,10 +15,17 @@ namespace BreadLibrary.Core.Graphics.Particles
         public int Capacity { get; } = capacity;
     }
 
-    public abstract class BaseParticle<T> : IDrawPixellated, IPooledParticle where T : IPooledParticle, new()
+    public abstract class BaseParticle<T> : IDrawPixelated, IPooledParticle where T : IPooledParticle, new()
     {
         public const int DEFAULT_POOL_CAPACITY = 100;
 
+
+        public bool ShouldDrawPixelated => DrawsPixellated;
+        public virtual bool DrawsPixellated
+        {
+            get;
+            set;
+        }
         public static ParticlePool<T> Pool { get; } = new ParticlePool<T>(typeof(T).GetCustomAttribute<PoolCapacityAttribute>()?.Capacity ?? DEFAULT_POOL_CAPACITY, GetNewParticle);
 
         protected static T GetNewParticle() => new T();
@@ -26,7 +33,8 @@ namespace BreadLibrary.Core.Graphics.Particles
         public bool IsRestingInPool { get; private set; }
 
         public bool ShouldBeRemovedFromRenderer { get; protected set; }
-        public abstract PixelLayer PixelLayer { get; }
+        public abstract PixelLayer PixelLayer { get; }        
+
 
         public virtual void FetchFromPool()
         {

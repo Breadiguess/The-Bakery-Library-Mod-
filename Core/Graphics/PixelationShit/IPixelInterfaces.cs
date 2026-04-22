@@ -8,7 +8,7 @@ namespace BreadLibrary.Core.Graphics.PixelationShit
 
     public interface IPixelDrawableSource
     {
-        void CollectPixelDraws(List<IDrawPixellated> results);
+        void CollectPixelDraws(List<IDrawPixelated> results);
     }
 
     /// <summary>
@@ -16,7 +16,7 @@ namespace BreadLibrary.Core.Graphics.PixelationShit
     /// </summary>
     public interface IPixelDrawProvider
     {
-        void CollectPixelDraws(List<IDrawPixellated> results);
+        void CollectPixelDraws(List<IDrawPixelated> results);
     }
 
     /// <summary>
@@ -24,6 +24,6 @@ namespace BreadLibrary.Core.Graphics.PixelationShit
     /// </summary>
     public interface IPlayerPixelDrawProvider
     {
-        void CollectPixelDraws(Player player, List<IDrawPixellated> results);
+        void CollectPixelDraws(Player player, List<IDrawPixelated> results);
     }
 }
