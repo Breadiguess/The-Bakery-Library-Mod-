@@ -1,282 +1,314 @@
-﻿
-using System.Runtime.CompilerServices;
+﻿using System;
+using Microsoft.Xna.Framework;
 
 public sealed class IKSkeleton
 {
+    //tfw 
     public readonly struct JointSetup
     {
         public readonly float Length;
-        public readonly float CenterDeg;
-        public readonly float SwingDeg;
+        public readonly float CenterDegrees;
+        public readonly float SwingDegrees;
 
-        public JointSetup(float length, float centerDeg, float swingDeg)
+        public JointSetup(float length, float centerDegrees, float swingDegrees)
         {
             Length = length;
-            CenterDeg = centerDeg;
-            SwingDeg = swingDeg;
+            CenterDegrees = centerDegrees;
+            SwingDegrees = swingDegrees;
         }
     }
-    public struct Constraints()
-    {
-        public float MinAngle = -MathF.PI;
 
-        public float MaxAngle = MathF.PI;
+    public struct JointLimit
+    {
+        public float Min;
+        public float Max;
+
+        public JointLimit(float min, float max)
+        {
+            Min = min;
+            Max = max;
+        }
     }
 
-    [InlineArray(MaxJointCount + 1)]
-    private struct PositionData
-    {
-        private Vector2 _;
-    }
+    //highly doubt we'll ever get this high, but it might be funny
+    private const int MaxSegments = 64;
+    private const int DefaultIterations = 12;
+    private const float SolveEpsilonSq = 0.01f;
+    private const float StagnationThreshold = 0.0001f;
+
+    private readonly int _segmentCount;
+
+    private readonly float[] _lengths;
+    private readonly JointLimit[] _limits;
+
+    public readonly Vector2[] _joints;
+
+    public readonly Vector2[] _lastSolvedJoints;
+
+    private readonly float[] _localAngles;
+
+    private readonly float _totalLength;
+
+    private bool _initialized;
 
     public bool SolveFailed { get; private set; }
 
     public float FinalDistance { get; private set; }
 
-    public int JointCount => _options.Length;
+    public int SegmentCount => _segmentCount;
 
-    public int PositionCount => JointCount + 1;
+    public int JointCount => _segmentCount + 1;
 
-    private const int MaxJointCount = 16;
-
-    private readonly (float length, Constraints constraints)[] _options;
-
-    private PositionData _previousPositions;
-
-    private PositionData _positions;
-
-    public float _maxDistance;
-
-    public Vector2 Position(int index)
+    public IKSkeleton(params (float length, JointLimit limit)[] segments)
     {
-        return _positions[index];
-    }
+        if (segments == null || segments.Length == 0)
+            throw new ArgumentException("At least one segment is required.", nameof(segments));
 
-    public IKSkeleton(params (float, Constraints)[] options)
-    {
-        if (options.Length > MaxJointCount)
+        if (segments.Length > MaxSegments)
+            throw new ArgumentException($"Segment count exceeds max of {MaxSegments}.", nameof(segments));
+
+        _segmentCount = segments.Length;
+        _lengths = new float[_segmentCount];
+        _limits = new JointLimit[_segmentCount];
+        _joints = new Vector2[_segmentCount + 1];
+        _lastSolvedJoints = new Vector2[_segmentCount + 1];
+        _localAngles = new float[_segmentCount];
+
+        float total = 0f;
+        for (int i = 0; i < _segmentCount; i++)
         {
-            throw new Exception($"MaxJointCount is less than provided options ({options.Length}).");
+            _lengths[i] = segments[i].length;
+            _limits[i] = segments[i].limit;
+            total += segments[i].length;
         }
 
-        _options = options;
-
-        foreach (var (length, _) in options)
-        {
-            _maxDistance += length;
-        }
+        _totalLength = total;
     }
+
     public IKSkeleton(params JointSetup[] joints)
     {
-        if (joints.Length > MaxJointCount)
-            throw new Exception($"MaxJointCount is less than provided options ({joints.Length}).");
+        if (joints == null || joints.Length == 0)
+            throw new ArgumentException("At least one segment is required.", nameof(joints));
 
-        _options = new (float, Constraints)[joints.Length];
+        if (joints.Length > MaxSegments)
+            throw new ArgumentException($"Segment count exceeds max of {MaxSegments}.", nameof(joints));
 
-        for (int i = 0; i < joints.Length; i++)
+        _segmentCount = joints.Length;
+        _lengths = new float[_segmentCount];
+        _limits = new JointLimit[_segmentCount];
+        _joints = new Vector2[_segmentCount + 1];
+        _lastSolvedJoints = new Vector2[_segmentCount + 1];
+        _localAngles = new float[_segmentCount];
+
+        float total = 0f;
+        for (int i = 0; i < _segmentCount; i++)
         {
-            var j = joints[i];
-            var c = FromCentered(j.CenterDeg, j.SwingDeg);
+            _lengths[i] = joints[i].Length;
+            _limits[i] = FromCentered(joints[i].CenterDegrees, joints[i].SwingDegrees);
+            total += joints[i].Length;
+        }
 
-            _options[i] = (j.Length, c);
-            _maxDistance += j.Length;
+        _totalLength = total;
+    }
+
+    public Vector2 GetJointPosition(int index) => _joints[index];
+
+    public float GetConstraintDegrees(int joint)
+    {
+        JointLimit limit = _limits[joint];
+        return MathHelper.ToDegrees(limit.Max - limit.Min);
+    }
+
+    public void SetConstraint(int joint, float minRadians, float maxRadians)
+    {
+        _limits[joint] = new JointLimit(minRadians, maxRadians);
+    }
+
+    public float GetSolvedLocalAngle(int joint, Vector2 rootPosition)
+    {
+        float parentAngle = GetParentWorldAngle(joint, rootPosition);
+        float segmentAngle = (_joints[joint + 1] - _joints[joint]).ToRotation();
+        return MathHelper.WrapAngle(segmentAngle - parentAngle);
+    }
+
+    public void LockCurrentPose(Vector2 rootPosition)
+    {
+        for (int i = 0; i < _segmentCount; i++)
+        {
+            float angle = GetSolvedLocalAngle(i, rootPosition);
+            _limits[i] = new JointLimit(angle, angle);
         }
     }
 
-
-    // http://www.andreasaristidou.com/FABRIK.html 
-    public void Update(Vector2 startPosition, Vector2 targetEndPosition)
+    public void Solve(Vector2 rootPosition, Vector2 targetPosition)
     {
-        if (_positions[0] == default)
-        {
-            InitializePositions(startPosition);
-        }
-        _previousPositions = _positions;
+        if (!_initialized)
+            BuildRestPose(rootPosition);
+
+        CopyJoints(_joints, _lastSolvedJoints);
         SolveFailed = false;
 
-        var dist = UpdateInner(startPosition, targetEndPosition);
-        FinalDistance = MathF.Sqrt(dist);
+        float rootToTargetSq = Vector2.DistanceSquared(rootPosition, targetPosition);
 
-        var outOfReach = FinalDistance > _maxDistance;
-        var tooFarAfterSolve = FinalDistance > 26f;
-
-        var distance = UpdateInner(startPosition, targetEndPosition);
-
-        if (outOfReach || tooFarAfterSolve)
+        if (rootToTargetSq >= _totalLength * _totalLength)
         {
-            SolveFailed = true;
-            _positions = _previousPositions;
+            SolveUnreachable(rootPosition, targetPosition);
+            FinalDistance = Vector2.Distance(_joints[_segmentCount], targetPosition);
+            return;
         }
 
-        if (distance > 26f)
+        _joints[0] = rootPosition;
+
+        float previousError = float.MaxValue;
+
+        for (int iteration = 0; iteration < DefaultIterations; iteration++)
         {
-            _positions = _previousPositions;
+            BackwardReach(targetPosition);
+            ForwardReach(rootPosition);
 
-            UpdateInner
-            (
-                startPosition,
-                targetEndPosition + startPosition.DirectionTo(targetEndPosition) * startPosition.Distance(_positions[PositionCount - 1])
-            );
-        }
-    }
+            float errorSq = Vector2.DistanceSquared(_joints[_segmentCount], targetPosition);
 
-    private float UpdateInner(Vector2 startPosition, Vector2 targetEndPosition)
-    {
-        var lastDistance = float.MaxValue;
-
-        var iterations = 2 << 4;
-        var distance = startPosition.DistanceSQ(targetEndPosition);
-
-        if (distance > _maxDistance * _maxDistance)
-        {
-            iterations = 1;
-        }
-
-        for (var k = 0; k < iterations; k += 1)
-        {
-            _positions[PositionCount - 1] = targetEndPosition;
-            _positions[0] = startPosition;
-
-            float rootAngle;
-
-            for (var i = JointCount - 1; i > 0; i -= 1)
-            {
-                var nextAngle = (_positions[i + 1] - _positions[i]).ToRotation();
-
-                rootAngle = (_positions[i] - (i > 1 ? _positions[i - 1] : startPosition)).ToRotation();
-
-                var angle = rootAngle +
-                            Math.Clamp
-                            (
-                                MathHelper.WrapAngle(nextAngle - rootAngle),
-                                _options[i].constraints.MinAngle,
-                                _options[i].constraints.MaxAngle
-                            );
-
-                _positions[i] = _positions[i + 1] + (angle + MathF.PI).ToRotationVector2() * _options[i].length;
-            }
-
-            rootAngle = 0f;
-
-            for (var i = 0; i < JointCount; i += 1)
-            {
-                var nextAngle = (_positions[i + 1] - _positions[i]).ToRotation();
-
-                var angle = rootAngle +
-                            Math.Clamp
-                            (
-                                MathHelper.WrapAngle(nextAngle - rootAngle),
-                                _options[i].constraints.MinAngle,
-                                _options[i].constraints.MaxAngle
-                            );
-
-                _positions[i + 1] = _positions[i] + angle.ToRotationVector2() * _options[i].length;
-                rootAngle = angle;
-            }
-
-            distance = _positions[PositionCount - 1].DistanceSQ(targetEndPosition);
-
-            if (distance <= 0.01f)
-            {
+            if (errorSq <= SolveEpsilonSq)
                 break;
-            }
 
-            // Check stagnation (solver cannot improve -> impossible pose under constraints)
-            if (Math.Abs(lastDistance - distance) < 0.0001f)
+            if (MathF.Abs(previousError - errorSq) < StagnationThreshold)
             {
                 SolveFailed = true;
-
                 break;
             }
 
-            lastDistance = distance;
+            previousError = errorSq;
         }
 
-        return distance;
-    }
+        FinalDistance = Vector2.Distance(_joints[_segmentCount], targetPosition);
 
-    /// <summary>
-    ///     attempts to mutate the values stored inside this limb's _options tuple.
-    /// </summary>
-    /// <param name="joint">the index of the bone to adjust parameters for</param>
-    /// <param name="min"></param>
-    /// <param name="max"></param>
-    public void SetConstraint(int joint, float min, float max)
-    {
-        var (len, c) = _options[joint];
-        c.MinAngle = min;
-        c.MaxAngle = max;
-        _options[joint] = (len, c); // assign tuple back (struct copy)
-    }
-
-    public float GetConstraint(int joint)
-    {
-        var max = _options[joint].constraints.MaxAngle;
-        var min = _options[joint].constraints.MinAngle;
-
-        return MathHelper.ToDegrees(max - min);
-    }
-
-    public float GetSolvedJointAngle(int joint, Vector2 startPosition)
-    {
-        // Root-relative angle reconstruction (matches solver logic)
-        float rootAngle = 0f;
-
-        if (joint > 0)
+        if (SolveFailed)
         {
-            Vector2 prevDir =
-                (joint > 1 ? _positions[joint] - _positions[joint - 1]
-                           : _positions[joint] - startPosition);
-
-            rootAngle = prevDir.ToRotation();
+            CopyJoints(_lastSolvedJoints, _joints);
+            FinalDistance = Vector2.Distance(_joints[_segmentCount], targetPosition);
         }
-
-        Vector2 dir = _positions[joint + 1] - _positions[joint];
-        float absoluteAngle = dir.ToRotation();
-
-        // This is the angle actually clamped by constraints
-        return MathHelper.WrapAngle(absoluteAngle - rootAngle);
-    }
-
-    public void LockCurrentPose(Vector2 startPosition)
-    {
-        for (int i = 0; i < JointCount; i++)
+        else
         {
-            float angle = GetSolvedJointAngle(i, startPosition);
-            SetConstraint(i, angle, angle);
+            CacheSolvedLocalAngles(rootPosition);
         }
     }
-    private static Constraints FromCentered(float centerDeg, float swingDeg)
-    {
-        float center = MathHelper.ToRadians(centerDeg);
-        float swing = MathHelper.ToRadians(swingDeg);
 
-        return new Constraints
+    private void BackwardReach(Vector2 targetPosition)
+    {
+        _joints[_segmentCount] = targetPosition;
+
+        for (int i = _segmentCount - 1; i >= 0; i--)
         {
-            MinAngle = center - swing,
-            MaxAngle = center + swing
-        };
+            Vector2 child = _joints[i + 1];
+            Vector2 current = _joints[i];
+
+            float incomingParentAngle = GetBackwardParentAngle(i);
+            float desiredAngle = (current - child).ToRotation();
+            float localAngle = MathHelper.WrapAngle(desiredAngle - incomingParentAngle);
+            float clampedLocal = Math.Clamp(localAngle, _limits[i].Min, _limits[i].Max);
+            float worldAngle = incomingParentAngle + clampedLocal;
+
+            _joints[i] = child + worldAngle.ToRotationVector2() * _lengths[i];
+        }
     }
-    /// <summary>
-    /// attempts to set the position of the leg upon first being created, inorder to fight potential 0,0.
-    /// </summary>
-    /// <param name="origin"></param>
-    private void InitializePositions(Vector2 origin)
+
+    private void ForwardReach(Vector2 rootPosition)
     {
-        _positions[0] = origin;
+        _joints[0] = rootPosition;
 
-        float angle = 0f;
-
-        for (int i = 0; i < JointCount; i++)
+        for (int i = 0; i < _segmentCount; i++)
         {
-            angle += (_options[i].constraints.MinAngle +
-                      _options[i].constraints.MaxAngle) * 0.5f;
+            Vector2 current = _joints[i];
+            Vector2 next = _joints[i + 1];
 
-            _positions[i + 1] =
-                _positions[i] +
-                angle.ToRotationVector2() * _options[i].length;
+            float parentAngle = GetParentWorldAngle(i, rootPosition);
+            float desiredAngle = (next - current).ToRotation();
+            float localAngle = MathHelper.WrapAngle(desiredAngle - parentAngle);
+            float clampedLocal = Math.Clamp(localAngle, _limits[i].Min, _limits[i].Max);
+            float worldAngle = parentAngle + clampedLocal;
+
+            _joints[i + 1] = current + worldAngle.ToRotationVector2() * _lengths[i];
+        }
+    }
+
+    private void SolveUnreachable(Vector2 rootPosition, Vector2 targetPosition)
+    {
+        _joints[0] = rootPosition;
+
+        float targetDirection = (targetPosition - rootPosition).ToRotation();
+
+        for (int i = 0; i < _segmentCount; i++)
+        {
+            float parentAngle = GetParentWorldAngle(i, rootPosition);
+            float localTowardTarget = MathHelper.WrapAngle(targetDirection - parentAngle);
+            float clampedLocal = Math.Clamp(localTowardTarget, _limits[i].Min, _limits[i].Max);
+            float worldAngle = parentAngle + clampedLocal;
+
+            _joints[i + 1] = _joints[i] + worldAngle.ToRotationVector2() * _lengths[i];
         }
 
-        _previousPositions = _positions;
+        CacheSolvedLocalAngles(rootPosition);
+    }
+
+    private float GetParentWorldAngle(int jointIndex, Vector2 rootPosition)
+    {
+        if (jointIndex <= 0)
+            return 0f;
+
+        Vector2 parentDirection = _joints[jointIndex] - _joints[jointIndex - 1];
+
+        if (parentDirection.LengthSquared() <= 0.000001f)
+            return 0f;
+
+        return parentDirection.ToRotation();
+    }
+
+    private float GetBackwardParentAngle(int jointIndex)
+    {
+        if (jointIndex <= 0)
+            return 0f;
+
+        Vector2 parentDir = _joints[jointIndex] - _joints[jointIndex - 1];
+        if (parentDir.LengthSquared() > 0.000001f)
+            return parentDir.ToRotation();
+
+        return 0f;
+    }
+
+    private void CacheSolvedLocalAngles(Vector2 rootPosition)
+    {
+        for (int i = 0; i < _segmentCount; i++)
+            _localAngles[i] = GetSolvedLocalAngle(i, rootPosition);
+    }
+
+    private void BuildRestPose(Vector2 rootPosition)
+    {
+        _joints[0] = rootPosition;
+
+        float accumulatedAngle = 0f;
+
+        for (int i = 0; i < _segmentCount; i++)
+        {
+            JointLimit limit = _limits[i];
+            float center = (limit.Min + limit.Max) * 0.5f;
+            accumulatedAngle += center;
+            _joints[i + 1] = _joints[i] + accumulatedAngle.ToRotationVector2() * _lengths[i];
+        }
+
+        CopyJoints(_joints, _lastSolvedJoints);
+        _initialized = true;
+    }
+
+    private static JointLimit FromCentered(float centerDegrees, float swingDegrees)
+    {
+        float center = MathHelper.ToRadians(centerDegrees);
+        float swing = MathHelper.ToRadians(swingDegrees);
+        return new JointLimit(center - swing, center + swing);
+    }
+
+    private static void CopyJoints(Vector2[] from, Vector2[] to)
+    {
+        for (int i = 0; i < from.Length; i++)
+            to[i] = from[i];
     }
 }
