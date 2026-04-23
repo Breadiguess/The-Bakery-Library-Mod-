@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BreadLibrary.Core.Graphics.PixelationShit
+namespace BreadLibrary.Core.Graphics.Pixelation
 {
     [Autoload(Side = ModSide.Client)]
     public sealed class PixelDrawRegistry : ModSystem

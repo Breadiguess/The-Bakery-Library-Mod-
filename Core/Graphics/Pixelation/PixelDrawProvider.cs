@@ -1,6 +1,6 @@
 ﻿using Terraria.ModLoader;
 
-namespace BreadLibrary.Core.Graphics.PixelationShit
+namespace BreadLibrary.Core.Graphics.Pixelation
 {
     [Autoload(Side = ModSide.Client)]
     public abstract class PixelDrawProvider : ModSystem, IPixelDrawProvider

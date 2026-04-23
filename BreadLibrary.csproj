@@ -8,10 +8,10 @@
 		
 	</PropertyGroup>
 	<ItemGroup>
-	  <AdditionalFiles Remove="Content\**" />
-	  <Compile Remove="Content\**" />
-	  <EmbeddedResource Remove="Content\**" />
-	  <None Remove="Content\**" />
+	  <AdditionalFiles Remove="Content\Demo\**" />
+	  <Compile Remove="Content\Demo\**" />
+	  <EmbeddedResource Remove="Content\Demo\**" />
+	  <None Remove="Content\Demo\**" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Compile Remove="Common\OldBaseWhipProjectile.cs" />

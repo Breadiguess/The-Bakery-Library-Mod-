@@ -1,26 +1,7 @@
-﻿
-using BreadLibrary.Core.Graphics.Particles;
-using global::BreadLibrary.Core.Graphics.PixelationShit;
+﻿using BreadLibrary.Core.Graphics.Particles;
 
-namespace BreadLibrary.Core.Graphics
+namespace BreadLibrary.Core.Graphics.Pixelation
 {
-    public interface IDrawPixelated
-    {
-        PixelLayer PixelLayer { get; }
-        bool ShouldDrawPixelated => true;
-        void DrawPixelated(SpriteBatch spriteBatch);
-    }
-
-    /// <summary>
-    /// Use this for player-bound visuals instead of trying to force ordinary PlayerDrawLayers into the RT.
-    /// </summary>
-    public interface IPlayerPixelatedDrawer
-    {
-        PixelLayer PixelLayer { get; }
-        bool IsActive(Player player);
-        void DrawPixelated(Player player, SpriteBatch spriteBatch);
-    }
-
     internal sealed class PlayerPixelWrapper : IDrawPixelated
     {
         public readonly Player Player;

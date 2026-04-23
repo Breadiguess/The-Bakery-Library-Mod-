@@ -1,5 +1,6 @@
 ﻿namespace BreadLibrary.Common.IK
 {
+    //TODO: Write some summaries.
     public sealed class IKSkeletonJacobian
     {
         public Vector2 Root;
@@ -62,7 +63,6 @@
         }
         public void Solve(Vector2 target, int iterations = 10, float alpha = 0.001f)
         {
-            //GO FUCK YOURSELF ALPHAAA
             alpha *= 0.0001f;
             for (int iter = 0; iter < iterations; iter++)
             {
@@ -80,7 +80,6 @@
                     Vector2 toEnd = end - joint;
 
                     Vector2 jacobianCol = new Vector2(-toEnd.Y, toEnd.X);
-                    //wydm lucille, WHAT DO YOU MEANN
                     float gradient = Vector2.Dot(jacobianCol, error);
 
                     float reachTerm = gradient;
@@ -95,7 +94,6 @@
                     Angles[i] += alpha * total;
                 }
             }
-            //not sure quite why but this just makes it slightly smoother. go figure.
             ForwardKinematics();
 
 

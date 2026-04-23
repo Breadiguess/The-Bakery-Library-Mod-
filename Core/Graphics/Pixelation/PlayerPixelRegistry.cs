@@ -1,4 +1,4 @@
-﻿namespace BreadLibrary.Core.Graphics.PixelationShit
+﻿namespace BreadLibrary.Core.Graphics.Pixelation
 {
     [Autoload(Side = ModSide.Client)]
     public sealed class PlayerPixelRegistry : ModSystem

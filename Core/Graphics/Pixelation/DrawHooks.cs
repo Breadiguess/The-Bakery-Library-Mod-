@@ -2,7 +2,7 @@
 using System.Reflection;
 using Terraria.Graphics.Renderers;
 
-namespace BreadLibrary.Core.Graphics.PixelationShit
+namespace BreadLibrary.Core.Graphics.Pixelation
 {
     public enum PixelLayer
     {

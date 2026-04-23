@@ -1,4 +1,4 @@
-﻿using BreadLibrary.Core.Graphics.PixelationShit;
+﻿using BreadLibrary.Core.Graphics.Pixelation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,8 +25,6 @@ namespace BreadLibrary.Core.Graphics.Particles
     public abstract class BaseParticle<T> : IDrawPixelated, IPooledParticle where T : IPooledParticle, new()
     {
         public const int DEFAULT_POOL_CAPACITY = 150;
-
-
         public bool ShouldDrawPixelated => DrawsPixelated;
         public virtual bool DrawsPixelated => false;
         public static ParticlePool<T> Pool { get; } = new ParticlePool<T>(typeof(T).GetCustomAttribute<PoolCapacityAttribute>()?.Capacity ?? DEFAULT_POOL_CAPACITY, GetNewParticle);
@@ -61,8 +59,18 @@ namespace BreadLibrary.Core.Graphics.Particles
         {
         }
 
-        public virtual void DrawPixelated(SpriteBatch spriteBatch)
+        protected void DrawPixelated(SpriteBatch spriteBatch)
         {
+            var engine = ParticleEngine.GetRenderer(this);
+            if (engine is not null)
+            {
+                this.Draw(ref engine.Settings, spriteBatch);
+            }
+        }
+
+        void IDrawPixelated.DrawPixelated(SpriteBatch spriteBatch)
+        {
+            DrawPixelated(spriteBatch);
         }
     }
 }
