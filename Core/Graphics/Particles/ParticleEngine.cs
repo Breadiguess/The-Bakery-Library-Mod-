@@ -53,7 +53,7 @@ namespace BreadLibrary.Core.Graphics.Particles
             CollectFromRenderer(Particles, results);
             CollectFromRenderer(ShaderParticles, results);
             CollectFromRenderer(BehindProjectiles, results);
-             }
+        }
 
         private static void CollectFromRenderer(ParticleRenderer renderer, List<IDrawPixelated> results)
         {
@@ -62,8 +62,11 @@ namespace BreadLibrary.Core.Graphics.Particles
 
             foreach (IPooledParticle particle in renderer.Particles)
             {
-                if (particle is IDrawPixelated pixel && pixel.ShouldDrawPixelated)
-                    results.Add(pixel);
+                if (particle is IDrawPixelated pixel)
+                {
+                    if(pixel is not null && pixel.ShouldDrawPixelated)
+                        results.Add(pixel);
+                } 
             }
         }
 

@@ -22,7 +22,7 @@ namespace BreadLibrary.Core.Graphics.Particles
         public int Capacity { get; } = capacity;
     }
 
-    public abstract class BaseParticle<T> : IDrawPixelated, IPooledParticle where T : IPooledParticle, new()
+    public abstract class BaseParticle<T> : IBaseParticle, IDrawPixelated, IPooledParticle where T : IPooledParticle, new()
     {
         public const int DEFAULT_POOL_CAPACITY = 150;
         public bool ShouldDrawPixelated => DrawsPixelated;
@@ -32,6 +32,13 @@ namespace BreadLibrary.Core.Graphics.Particles
         protected static T GetNewParticle() => new T();
 
         public bool IsRestingInPool { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public virtual void SetStaticDefaults()
+        {
+        }
 
         /// <summary>
         /// when this is true, the particle is removed from the renderer (and thus the world) at the end of the current frame.

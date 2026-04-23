@@ -1,4 +1,5 @@
 ﻿using BreadLibrary.Core.Graphics.Particles;
+using Terraria.Graphics.Shaders;
 
 namespace BreadLibrary.Core.Graphics.Pixelation
 {
@@ -234,6 +235,9 @@ namespace BreadLibrary.Core.Graphics.Pixelation
 
         private static void DrawQueuesToTargets()
         {
+            if (Main.mapFullscreen)
+                return;
+
             DrawQueueToTarget(behindTilesTarget, BehindTilesDraws);
             DrawQueueToTarget(aboveTilesTarget, AboveTilesDraws);
             DrawQueueToTarget(aboveNPCsTarget, AboveNPCsDraws);

@@ -1,5 +1,4 @@
-﻿
-namespace BreadLibrary.Core.Raycasting
+﻿namespace BreadLibrary.Core.Graphics
 {
     internal class RayCastVisualizer : ModSystem
     {
@@ -47,8 +46,8 @@ namespace BreadLibrary.Core.Raycasting
         public bool IsDead => TimeLeft <= 0;
         public Raycast(Vector2 start, Vector2 end, Color color, int TimeLeft = 4)
         {
-            this.Start = start.ToWorldCoordinates();
-            this.End = end.ToWorldCoordinates();
+            Start = start.ToWorldCoordinates();
+            End = end.ToWorldCoordinates();
             this.color = color;
             this.TimeLeft = 4;
         }
@@ -79,7 +78,7 @@ namespace BreadLibrary.Core.Raycasting
         public bool IsDead => TimeLeft <= 0;
         public RaycastText(string value, Vector2 WorldAnchor, Color color)
         {
-            this.Value = value;
+            Value = value;
             this.WorldAnchor = WorldAnchor;
             this.color = color;
         }

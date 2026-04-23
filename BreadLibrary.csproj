@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<!-- Import tModLoader mod properties -->
 	<Import Project="..\tModLoader.targets" />
@@ -19,6 +19,7 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <Folder Include="Common\Graphics\" />
+	  <Folder Include="Core\Raycasting\" />
 	</ItemGroup>
 	<ItemGroup>
 	  <PackageReference Include="ICSharpCode.Decompiler" Version="9.1.0.7988" />
