@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using System;
 using Terraria;
 using Terraria.ID;
@@ -44,7 +44,42 @@ namespace BreadLibrary.Core.Verlet
                 OldPositions[i] = Positions[i];
             }
         }
-
+    public VerletChain(int count, float segmentLength, Vector2 start, Vector2 end)
+    {
+        SegmentLength = new float[count - 1];
+        for (int i = 0; i < count - 1; i++)
+            SegmentLength[i] = segmentLength;
+        Positions = new Vector2[count];
+        OldPositions = new Vector2[count];
+        InitializeBetween(start, end);
+    }
+    
+    public VerletChain(int count, float[] segmentLength, Vector2 start, Vector2 end)
+    {
+        SegmentLength = segmentLength;
+        Positions = new Vector2[count];
+        OldPositions = new Vector2[count];
+        InitializeBetween(start, end);
+    }
+    
+    private void InitializeBetween(Vector2 start, Vector2 end)
+    {
+        if (Positions.Length == 0)
+            return;
+        if (Positions.Length == 1)
+        {
+            Positions[0] = start;
+            OldPositions[0] = start;
+            return;
+        }
+        for (int i = 0; i < Positions.Length; i++)
+        {
+            float completion = i / (float)(Positions.Length - 1);
+            Vector2 position = Vector2.Lerp(start, end, completion);
+            Positions[i] = position;
+            OldPositions[i] = position;
+        }
+    }
         public void Simulate(
             Vector2 externalVelocity,
             Vector2 root,
