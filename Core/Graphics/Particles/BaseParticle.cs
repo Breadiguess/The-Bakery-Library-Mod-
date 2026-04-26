@@ -22,7 +22,7 @@ namespace BreadLibrary.Core.Graphics.Particles
         public int Capacity { get; } = capacity;
     }
 
-    public abstract class BaseParticle<T> : IBaseParticle, IDrawPixelated, IPooledParticle where T : IPooledParticle, new()
+    public abstract class BaseParticle<T> : ModType, IDrawPixelated, IPooledParticle where T : IPooledParticle, new()
     {
         public const int DEFAULT_POOL_CAPACITY = 150;
         public bool ShouldDrawPixelated => DrawsPixelated;
@@ -33,13 +33,15 @@ namespace BreadLibrary.Core.Graphics.Particles
 
         public bool IsRestingInPool { get; private set; }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public virtual void SetStaticDefaults()
+        protected sealed override void Register()
         {
+
         }
 
+        public sealed override void SetupContent()
+        {
+            this.SetStaticDefaults();
+        }
         /// <summary>
         /// when this is true, the particle is removed from the renderer (and thus the world) at the end of the current frame.
         /// </summary>
@@ -57,7 +59,11 @@ namespace BreadLibrary.Core.Graphics.Particles
         {
             IsRestingInPool = true;
         }
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="settings"></param>
+        /// <param name="spritebatch"></param>
         public virtual void Draw(ref ParticleRendererSettings settings, SpriteBatch spritebatch)
         {
         }
