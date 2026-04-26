@@ -48,6 +48,10 @@ namespace BreadLibrary.Core.Graphics.Pixelation
         /// </summary>
         public static int PixelScale => 2;
 
+        public static Matrix PixelationMatrix
+        {
+            get => Matrix.CreateScale(1f / PixelScale, 1f / PixelScale, 1f);
+        }
         /// <summary>
         /// Global registration point for anything that wants to add custom pixelated draws.
         /// </summary>
@@ -263,7 +267,7 @@ namespace BreadLibrary.Core.Graphics.Pixelation
                     DepthStencilState.None,
                     RasterizerState.CullNone,
                     null,
-                    Matrix.CreateScale(1f / PixelScale, 1f / PixelScale, 1f));
+                    PixelationMatrix);
 
                 for (int i = 0; i < queue.Count; i++)
                     queue[i].DrawPixelated(Main.spriteBatch);

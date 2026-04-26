@@ -24,14 +24,32 @@ namespace BreadLibrary.Core.Graphics.Particles
 
     public abstract class BaseParticle<T> : ModType, IDrawPixelated, IPooledParticle where T : IPooledParticle, new()
     {
+        #region Pool stuff
         public const int DEFAULT_POOL_CAPACITY = 150;
-        public bool ShouldDrawPixelated => DrawsPixelated;
-        public virtual bool DrawsPixelated => false;
         public static ParticlePool<T> Pool { get; } = new ParticlePool<T>(typeof(T).GetCustomAttribute<PoolCapacityAttribute>()?.Capacity ?? DEFAULT_POOL_CAPACITY, GetNewParticle);
 
         protected static T GetNewParticle() => new T();
 
         public bool IsRestingInPool { get; private set; }
+
+        public virtual void FetchFromPool()
+        {
+            IsRestingInPool = false;
+            ShouldBeRemovedFromRenderer = false;
+        }
+
+        public virtual void RestInPool()
+        {
+            IsRestingInPool = true;
+        }
+        #endregion
+
+        public bool ShouldDrawPixelated => DrawsPixelated;
+        /// <summary>
+        /// Override this to have the particle be drawn in the pixelated renderer instead of the normal one.
+        /// </summary>
+        public virtual bool DrawsPixelated => false;
+     
 
         protected sealed override void Register()
         {
@@ -46,24 +64,21 @@ namespace BreadLibrary.Core.Graphics.Particles
         /// when this is true, the particle is removed from the renderer (and thus the world) at the end of the current frame.
         /// </summary>
         public bool ShouldBeRemovedFromRenderer { get; protected set; }
+        /// <summary>
+        /// the PixelLayer this particle should draw to.
+        /// Only relevant if <see cref="DrawsPixelated"/> is true.
+        /// </summary>
+        /// <remarks>Note: this is shared between all instances of the particle.</remarks>
         public virtual PixelLayer PixelLayer { get; }        
 
 
-        public virtual void FetchFromPool()
-        {
-            IsRestingInPool = false;
-            ShouldBeRemovedFromRenderer = false;
-        }
-
-        public virtual void RestInPool()
-        {
-            IsRestingInPool = true;
-        }
+      
         /// <summary>
-        /// 
+        /// Draws the particle using the provided renderer settings and sprite batch.
         /// </summary>
         /// <param name="settings"></param>
         /// <param name="spritebatch"></param>
+        /// <remarks>If you're drawing this particle pixelated, make sure to use <see cref="PixelationSystem.PixelationMatrix"/> whenever you interact with spritebatch, otherwise it will not draw properly.</remarks>
         public virtual void Draw(ref ParticleRendererSettings settings, SpriteBatch spritebatch)
         {
         }
