@@ -49,17 +49,11 @@ namespace BreadLibrary.Core.Graphics.Particles
         /// Override this to have the particle be drawn in the pixelated renderer instead of the normal one.
         /// </summary>
         public virtual bool DrawsPixelated => false;
-     
 
-        protected sealed override void Register()
-        {
 
-        }
+        protected sealed override void Register() { }
 
-        public sealed override void SetupContent()
-        {
-            this.SetStaticDefaults();
-        }
+        public sealed override void SetupContent() => this.SetStaticDefaults();
         /// <summary>
         /// when this is true, the particle is removed from the renderer (and thus the world) at the end of the current frame.
         /// </summary>
@@ -69,24 +63,20 @@ namespace BreadLibrary.Core.Graphics.Particles
         /// Only relevant if <see cref="DrawsPixelated"/> is true.
         /// </summary>
         /// <remarks>Note: this is shared between all instances of the particle.</remarks>
-        public virtual PixelLayer PixelLayer { get; }        
+        public virtual PixelLayer PixelLayer { get; }
 
 
-      
+
         /// <summary>
         /// Draws the particle using the provided renderer settings and sprite batch.
         /// </summary>
         /// <param name="settings"></param>
         /// <param name="spritebatch"></param>
         /// <remarks>If you're drawing this particle pixelated, make sure to use <see cref="PixelationSystem.PixelationMatrix"/> whenever you interact with spritebatch, otherwise it will not draw properly.</remarks>
-        public virtual void Draw(ref ParticleRendererSettings settings, SpriteBatch spritebatch)
-        {
-        }
+        public virtual void Draw(ref ParticleRendererSettings settings, SpriteBatch spritebatch) { }
 
-        public virtual void Update(ref ParticleRendererSettings settings)
-        {
-        }
-
+        public virtual void Update(ref ParticleRendererSettings settings) { }
+        void IDrawPixelated.DrawPixelated(SpriteBatch spriteBatch) => DrawPixelated(spriteBatch);
         protected void DrawPixelated(SpriteBatch spriteBatch)
         {
             var engine = ParticleEngine.GetRenderer(this);
@@ -96,9 +86,6 @@ namespace BreadLibrary.Core.Graphics.Particles
             }
         }
 
-        void IDrawPixelated.DrawPixelated(SpriteBatch spriteBatch)
-        {
-            DrawPixelated(spriteBatch);
-        }
+
     }
 }
