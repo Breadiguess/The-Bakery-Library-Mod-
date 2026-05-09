@@ -12,7 +12,7 @@ public interface IWhipModifier
     /// <param name="segments">number of logical segments for the whip (useful for index->percent)</param>
     /// <param name="rangeMultiplier"> whip range multiplier (already adjusted by player)</param>
     /// <param name="progress"> normalized 0..1 progress through the swing</param>
-    void Apply(List<Vector2> controlPoints, Projectile projectile, int segments, float rangeMultiplier, float progress);
+    public void Apply(List<Vector2> controlPoints, Projectile projectile, int segments, float rangeMultiplier, float progress);
 }
 
 public interface IWhipMotion

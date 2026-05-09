@@ -1,28 +1,20 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Tomat.Terraria.ModLoader.Sdk/2.0.0">
 	<!-- Import tModLoader mod properties -->
 	<Import Project="..\tModLoader.targets" />
 
 	<!-- General -->
 	<PropertyGroup>
-		
+
 	</PropertyGroup>
 	<ItemGroup>
-	  <AdditionalFiles Remove="Content\Demo\**" />
-	  <Compile Remove="Content\Demo\**" />
-	  <EmbeddedResource Remove="Content\Demo\**" />
-	  <None Remove="Content\Demo\**" />
+		<Compile Remove="Common\OldBaseWhipProjectile.cs" />
+		<Compile Remove="Core\SoftBodySim\SoftBodyBuilder.cs" />
 	</ItemGroup>
 	<ItemGroup>
-	  <Compile Remove="Common\OldBaseWhipProjectile.cs" />
-	  <Compile Remove="Core\SoftBodySim\SoftBodyBuilder.cs" />
+		<Folder Include="Common\Graphics\" />
 	</ItemGroup>
 	<ItemGroup>
-	  <Folder Include="Common\Graphics\" />
-	  <Folder Include="Core\Raycasting\" />
-	</ItemGroup>
-	<ItemGroup>
-	  <PackageReference Include="ICSharpCode.Decompiler" Version="9.1.0.7988" />
+		<PackageReference Include="ICSharpCode.Decompiler" Version="9.1.0.7988" />
 	</ItemGroup>
 
 	<!-- References -->

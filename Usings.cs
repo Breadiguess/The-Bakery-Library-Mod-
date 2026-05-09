@@ -10,7 +10,6 @@ global using Terraria.GameContent;
 global using Terraria.ID;
 global using Terraria.ModLoader;
 global using BreadLibrary.Core.Graphics.Spritebatch;
-global using BreadLibrary.Core.Graphics.Backgrounds;
 global using ReLogic.Content;
 
 global using BreadLibrary.Core.Utilities;

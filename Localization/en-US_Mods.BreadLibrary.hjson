@@ -14,11 +14,17 @@ Items: {
 		DisplayName: Multi Lash_ Item
 		Tooltip: ""
 	}
+
+	ExampleGun: {
+		DisplayName: Example Gun
+		Tooltip: ""
+	}
 }
 
 Projectiles: {
 	ExampleWhipProjectile.DisplayName: StormScythe Projectile
 	MultiLash_Whip.DisplayName: Multi Lash_ Whip
+	ExampleBullet.DisplayName: Example Bullet
 }
 
 NPCs: {

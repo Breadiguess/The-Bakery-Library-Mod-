@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using BreadLibrary.Core.Graphics.Pixelation;
+﻿using BreadLibrary.Core.Graphics.Pixelation;
 using Terraria.Graphics.Renderers;
 
 namespace BreadLibrary.Core.Graphics.Particles
@@ -64,9 +63,9 @@ namespace BreadLibrary.Core.Graphics.Particles
             {
                 if (particle is IDrawPixelated pixel)
                 {
-                    if(pixel is not null && pixel.ShouldDrawPixelated)
+                    if (pixel is not null && pixel.ShouldDrawPixelated)
                         results.Add(pixel);
-                } 
+                }
             }
         }
 

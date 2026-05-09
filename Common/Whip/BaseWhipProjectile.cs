@@ -383,7 +383,7 @@ namespace BreadLibrary.Common.Whip
         /// the texture to be used by the primitive.
         /// whether it is scrolling or not is controlled by <see cref="_PrimitiveIsScrollingTexture"/>, and the scroll rate is controlled by <see cref="_PrimitiveScrollRate"/>. 
         /// </summary>
-        protected virtual Texture2D PrimitiveTex => null;
+        protected virtual Asset<Texture2D> PrimitiveTex => null;
         /// <summary>
         /// if you set this, make sure that <see cref="PrimSampler"/> is set to <see cref="SamplerState.PointWrap"/> otherwise the texture might not scroll properly.
         /// </summary>
@@ -460,7 +460,7 @@ namespace BreadLibrary.Common.Whip
             };
 
 
-            Texture2D tex = PrimitiveTex == null ? TextureAssets.MagicPixel.Value : PrimitiveTex;
+            Texture2D tex = PrimitiveTex == null ? TextureAssets.MagicPixel.Value : PrimitiveTex.Value;
 
             _whipEffect.Texture = tex;
             _whipEffect.View = Main.GameViewMatrix.TransformationMatrix;
@@ -606,7 +606,7 @@ namespace BreadLibrary.Common.Whip
         /// <summary>
         /// the texture to use as the head of the whip.
         /// </summary>
-        protected virtual Texture2D WhipHead => null;
+        protected virtual Asset<Texture2D> WhipHead => null;
 
         public bool _ShouldDrawHead = true;
 
@@ -685,7 +685,7 @@ namespace BreadLibrary.Common.Whip
 
             Vector2 Scale = new Vector2(CalculateHeadScale());
 
-            Main.EntitySpriteDraw(WhipHead, headpos - Main.screenPosition, HeadFrame, HeadColor, BaseRotation, Origin, Scale, _flip);
+            Main.EntitySpriteDraw(WhipHead.Value, headpos - Main.screenPosition, HeadFrame, HeadColor, BaseRotation, Origin, Scale, _flip);
         }
         #endregion
         #region Normal
@@ -798,7 +798,7 @@ namespace BreadLibrary.Common.Whip
         #endregion
         #region Handle
 
-        protected virtual Texture2D WhipHandle => null;
+        protected virtual Asset<Texture2D> WhipHandle => null;
         /// <summary>
         /// stores the values created for the purposes of animation later
         /// </summary>
@@ -859,7 +859,7 @@ namespace BreadLibrary.Common.Whip
             float handlerot = rotation;
             Color handlecolor = Lighting.GetColor(list[1].ToTileCoordinates());
             Vector2 Origin = HandleOrigin(_Offset);
-            Main.EntitySpriteDraw(WhipHandle, handlepos - Main.screenPosition, handleframe, handlecolor, handlerot, Origin, 1, flip);
+            Main.EntitySpriteDraw(WhipHandle.Value, handlepos - Main.screenPosition, handleframe, handlecolor, handlerot, Origin, 1, flip);
 
         }
         #endregion
