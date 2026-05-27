@@ -11,7 +11,21 @@ namespace BreadLibrary.Core.Graphics.Metaballs
         public const int AbsoluteMaxShaderInstances = 64;
 
         private static readonly Dictionary<string, List<MetaballGroup>> Groups = new();
+        public static int DebugTotalInstanceCount
+        {
+            get
+            {
+                int total = 0;
 
+                foreach (List<MetaballGroup> groups in Groups.Values)
+                {
+                    for (int i = 0; i < groups.Count; i++)
+                        total += groups[i].Instances.Count;
+                }
+
+                return total;
+            }
+        }
         public static bool AnythingToDraw
         {
             get

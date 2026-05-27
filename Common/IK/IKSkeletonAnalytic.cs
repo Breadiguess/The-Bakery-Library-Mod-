@@ -18,45 +18,46 @@ namespace BreadLibrary.Common.IK
 
         public void Solve(Vector2 target, Vector2 pole)
         {
-            Vector2 AC = target - Root;
-            float d = AC.Length();
+            Vector2 rootToTarget = target - Root;
+            float rawDistance = rootToTarget.Length();
 
-            d = MathHelper.Clamp
+            Vector2 dir = rootToTarget.SafeNormalize(Vector2.UnitX);
+
+            float distance = MathHelper.Clamp
             (
-                d,
+                rawDistance,
                 MathF.Abs(UpperLength - LowerLength) + 0.001f,
                 UpperLength + LowerLength - 0.001f
             );
 
+            // The actual reachable tip position.
+            Vector2 solvedTip = Root + dir * distance;
+
             float cosTheta =
-            (   
+            (
                 UpperLength * UpperLength +
-                d * d -
+                distance * distance -
                 LowerLength * LowerLength
             ) /
             (
-                2f * UpperLength * d
+                2f * UpperLength * distance
             );
 
-            float theta =
-                MathF.Acos(MathHelper.Clamp(cosTheta, -1f, 1f));
+            float theta = MathF.Acos(MathHelper.Clamp(cosTheta, -1f, 1f));
 
-            Vector2 dir =
-                AC.SafeNormalize(Vector2.UnitX);
+            Vector2 perp = new Vector2(-dir.Y, dir.X);
 
-            Vector2 perp =
-                new Vector2(-dir.Y, dir.X);
+            Vector2 rootToPole = pole - Root;
 
-            float side =
-                MathF.Sign(Vector2.Dot(perp, pole));
+            float side = MathF.Sign(Vector2.Dot(perp, rootToPole));
 
-            Vector2 jointDir =
-                dir.RotatedBy(theta * side);
+            if (side == 0f)
+                side = 1f;
 
-            Joint =
-                Root + jointDir * UpperLength;
+            Vector2 jointDir = dir.RotatedBy(theta * side);
 
-            Tip = target;
+            Joint = Root + jointDir * UpperLength;
+            Tip = solvedTip;
         }
     }
 }

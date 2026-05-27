@@ -30,4 +30,5 @@ Projectiles: {
 NPCs: {
 	SoftBodyNPC.DisplayName: Soft Body N P C
 	JacobianIKAnchorNPC.DisplayName: Jacobian I K Anchor N P C
+	SlimeBoss.DisplayName: Slime Boss
 }

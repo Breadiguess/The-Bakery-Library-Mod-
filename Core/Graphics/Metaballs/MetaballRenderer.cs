@@ -4,6 +4,8 @@ namespace BreadLibrary.Core.Graphics.Metaballs
 {
     public sealed class MetaballRenderer : ModSystem
     {
+
+
         private static readonly BlendState AdditiveFieldBlend = new()
         {
             ColorSourceBlend = Blend.One,
@@ -17,9 +19,9 @@ namespace BreadLibrary.Core.Graphics.Metaballs
             ColorWriteChannels = ColorWriteChannels.All
         };
 
-        public static float DesiredScale => 1f;
+        public static float DesiredScale =>1f;
         private static Asset<Effect> metaballEffect;
-        
+
         private static Asset<Effect> metaballResolveEffect;
 
         public static RenderTarget2D metaballTarget;
@@ -43,8 +45,8 @@ namespace BreadLibrary.Core.Graphics.Metaballs
             "BreadLibrary/Assets/Effects/Metaballs/MetaballResolve",
             AssetRequestMode.ImmediateLoad);
             On_Main.CheckMonoliths += RenderMetaballs;
-        }   
-        private static void BuildLayerTarget(MetaballLayer layer)   
+        }
+        private static void BuildLayerTarget(MetaballLayer layer)
         {
             if (Main.dedServ || metaballEffect?.Value is null || metaballResolveEffect?.Value is null)
                 return;
@@ -116,9 +118,10 @@ namespace BreadLibrary.Core.Graphics.Metaballs
             Main.spriteBatch.Draw(layerCompositeTarget, Vector2.Zero, Color.White);
 
             Main.spriteBatch.End();
+            //Main.NewText(MetaballSystem.DebugTotalInstanceCount);
         }
 
-    
+
 
         private static void DrawGroupSetToComposite(GraphicsDevice graphicsDevice, SpriteBatch spriteBatch,
     IGrouping<Metaball, MetaballGroup> groupSet, RenderTarget2D compositeTarget)
@@ -147,7 +150,7 @@ namespace BreadLibrary.Core.Graphics.Metaballs
                 drawBounds.Height
             ));
 
-          
+
             MetaballDrawContext fieldContext = new(
                 graphicsDevice,
                 metaballTarget,
@@ -212,8 +215,7 @@ namespace BreadLibrary.Core.Graphics.Metaballs
                 Matrix.Identity
             );
 
-            spriteBatch.Draw(metaballTarget, Vector2.Zero, Color.White);
-
+            spriteBatch.Draw(metaballTarget, drawBounds, drawBounds, Color.White);
             spriteBatch.End();
 
             graphicsDevice.SetRenderTarget(compositeTarget);
@@ -234,7 +236,7 @@ namespace BreadLibrary.Core.Graphics.Metaballs
 
                 postProcessEffect.Parameters["uScreenSize"]?.SetValue(new Vector2(Main.screenWidth, Main.screenHeight));
                 postProcessEffect.Parameters["uColor"]?.SetValue(metaball.Color.ToVector4());
-                postProcessEffect.Parameters["uTime"]?.SetValue(Main.GlobalTimeWrappedHourly * 0.05f); 
+                postProcessEffect.Parameters["uTime"]?.SetValue(Main.GlobalTimeWrappedHourly * 0.05f);
 
                 metaball.ApplyPostProcessParameters(postProcessEffect, postContext);
 
@@ -264,7 +266,12 @@ namespace BreadLibrary.Core.Graphics.Metaballs
                   Matrix.Identity
               );
 
-                spriteBatch.Draw(postProcessTarget, Vector2.Zero, Color.White);
+                spriteBatch.Draw(
+                    postProcessTarget,
+                    drawBounds,
+                    drawBounds,
+                    Color.White
+                );
 
                 spriteBatch.End();
             }
@@ -323,12 +330,12 @@ namespace BreadLibrary.Core.Graphics.Metaballs
         {
             GraphicsDevice graphicsDevice = Main.graphics.GraphicsDevice;
 
-            
+
 
             bool needsTarget =
                 metaballTarget is null ||
-                metaballTarget.Width != (int)(Main.screenWidth/DesiredScale) ||
-                metaballTarget.Height !=(int)( Main.screenHeight/DesiredScale) ||
+                metaballTarget.Width != (int)(Main.screenWidth / DesiredScale) ||
+                metaballTarget.Height != (int)(Main.screenHeight / DesiredScale) ||
                 metaballTarget.IsDisposed;
 
             if (needsTarget)
@@ -339,8 +346,8 @@ namespace BreadLibrary.Core.Graphics.Metaballs
 
                 metaballTarget = new RenderTarget2D(
                     graphicsDevice,
-                    (int)(Main.screenWidth/DesiredScale),
-                    (int)(Main.screenHeight/DesiredScale),
+                    (int)(Main.screenWidth / DesiredScale),
+                    (int)(Main.screenHeight / DesiredScale),
                     false,
                     SurfaceFormat.Color,
                     DepthFormat.None,

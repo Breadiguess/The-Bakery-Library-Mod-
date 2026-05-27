@@ -869,8 +869,7 @@ namespace BreadLibrary.Common.Whip
         protected virtual float RenderSpacing => 4f;
 
         public bool _DebugMode;
-        //change me to affect how often your texture repeats!
-        public float _PixelsPerRepeat => 32;
+        public virtual float _PixelsPerRepeat => 32;
         public override bool PreDraw(ref Color lightColor)
         {
             List<Vector2> list = new List<Vector2>();
