@@ -122,11 +122,10 @@ namespace BreadLibrary.Core.Utilities
 
                 if (tile != null &&
                     tile.HasTile &&
-                    (tile.HasUnactuatedTile && Main.tileSolid[tile.TileType] || (Main.tileSolidTop[tile.TileType] && tile.TileFrameY == 0))
+                    (tile.HasUnactuatedTile && Main.tileSolid[tile.TileType]    )
                     &&
                         Main.tileSolid[tile.TileType] &&
                    !Main.tileCut[tile.TileType] &&
-                   !Main.tileNoAttach[tile.TileType] && !Main.tileAxe[tile.TileType] &&
                    Main.tileBlockLight[tile.TileType] &&
                    Collision.SolidCollision(new Vector2(x, y).ToWorldCoordinates(), 16, 16) &&
                     WorldGen.SolidTile(tile) && Collision.IsWorldPointSolid(new Point(x, y).ToWorldCoordinates()))
@@ -141,10 +140,11 @@ namespace BreadLibrary.Core.Utilities
 
                 if (x == x1 && y == y1)
                 {
+                    return new Point(x, y);
                     break;
                 }
 
-                var e2 = err * 2;
+                    var e2 = err * 2;
 
                 if (e2 > -dy)
                 {
