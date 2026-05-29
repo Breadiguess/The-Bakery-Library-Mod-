@@ -8,6 +8,7 @@ using Terraria;
 
 namespace BreadLibrary.Content
 {
+#if DEBUG
     internal class SoftBodyNPC : ModNPC
     {
         public SoftbodyInstance Body;
@@ -119,4 +120,5 @@ namespace BreadLibrary.Content
             _bodyInitialized = false;
         }
     }
+#endif
 }
