@@ -85,10 +85,12 @@ namespace BreadLibrary.Core.Utilities
         /// <param name="newBlendState">The desired blend state.</param>
         public static void UseBlendState(this SpriteBatch spriteBatch, BlendState newBlendState)
         {
+            var capture = spriteBatch.Capture();
+            capture.BlendState = newBlendState;
             spriteBatch.End();
-            spriteBatch.Begin(SpriteSortMode.Deferred, newBlendState, Main.DefaultSamplerState, DepthStencilState.None, RasterizerState.CullNone, null, Main.GameViewMatrix.TransformationMatrix);
+            spriteBatch.Begin(capture);
         }
-
+        
         /// <summary>
         /// Resets the sprite batch with <see cref="SpriteSortMode.Immediate"/> blending, along with an optional <see cref="BlendState"/>. For use when shaders are necessary.
         /// <br></br>
