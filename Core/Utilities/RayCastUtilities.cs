@@ -141,7 +141,6 @@ namespace BreadLibrary.Core.Utilities
                 if (x == x1 && y == y1)
                 {
                     return new Point(x, y);
-                    break;
                 }
 
                     var e2 = err * 2;
