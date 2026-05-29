@@ -1,4 +1,13 @@
 This is a library mod, used for several of my mods.
 
-It features numerous things, such as a softbody simulation, a verlet simulation, a pixelation system, a easy and simple to use particle engine,
-A Simplified pipeline for creating whips, and more hopefully coming soon.
+It contains the following:
+
+A simple and easy to use API for creating and using particles,
+A Raycasting system,
+Screenshake system,
+A WIP Metaball system (subject to change, as I am actively Optimizing it for better performance.),
+A simple and easy to use Pixellation API,
+A simple system to allow for Neater boss AI,
+Several IK skeleton methods,
+A base whip system,
+And a handful of useful utilities.
