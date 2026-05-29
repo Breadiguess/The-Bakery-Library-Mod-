@@ -5,9 +5,23 @@ namespace BreadLibrary.Core.Graphics.Particles
 {
     public class ParticleEngine : ILoadable
     {
-        public static ParticleRenderer Particles = new();
-        public static ParticleRenderer ShaderParticles = new();
-        public static ParticleRenderer BehindProjectiles = new();
+        public static BakeryParticleRenderer Particles =
+             new BakeryParticleRenderer(
+                 ParticleRenderGroup.Normal,
+                 PixelLayer.AboveProjectiles
+             );
+
+        public static BakeryParticleRenderer ShaderParticles =
+            new BakeryParticleRenderer(
+                ParticleRenderGroup.Shader,
+                PixelLayer.AboveProjectiles
+            );
+
+        public static BakeryParticleRenderer BehindProjectiles =
+            new BakeryParticleRenderer(
+                ParticleRenderGroup.BehindProjectiles,
+                PixelLayer.AboveNPCs
+            );
 
         public IEnumerable<IPooledParticle> ActiveParticles
         {
@@ -131,47 +145,6 @@ namespace BreadLibrary.Core.Graphics.Particles
             Particles.Settings.AnchorPosition = -Main.screenPosition;
             Particles.Draw(Main.spriteBatch);
             Main.spriteBatch.End();
-        }
-
-        /// <summary>
-        /// Returns the particle Renderer the particle is currently resting in. 
-        /// this feels a bit hacky, but only time will tell. 
-        /// </summary>
-        /// <param name="particle"></param>
-        /// <returns></returns>
-        public static ParticleRenderer GetRenderer(object particle)
-        {
-            if (particle is null)
-                return null;
-
-            ParticleRenderer[] candidates = new[]
-            {
-                Particles,
-                ShaderParticles,
-                BehindProjectiles,
-            };
-
-            foreach (ParticleRenderer renderer in candidates)
-            {
-                if (renderer is null)
-                    continue;
-
-                var list = renderer.Particles;
-                if (list is null)
-                    continue;
-
-                for (int i = 0; i < list.Count; i++)
-                {
-                    object current = list[i];
-                    if (ReferenceEquals(current, particle))
-                        return renderer;
-
-                    if (current is not null && current.Equals(particle))
-                        return renderer;
-                }
-            }
-
-            return null;
         }
     }
 }

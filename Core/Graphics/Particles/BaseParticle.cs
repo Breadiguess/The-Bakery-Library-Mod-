@@ -21,8 +21,8 @@ namespace BreadLibrary.Core.Graphics.Particles
         /// </summary>
         public int Capacity { get; } = capacity;
     }
-
-    public abstract class BaseParticle<T> : ModType, IDrawPixelated, IPooledParticle where T : IPooledParticle, new()
+    public abstract class BaseParticle<T> : ModType, IPooledParticle, IDrawPixelated, IBakeryParticleRenderInfo
+    where T : IPooledParticle, new()
     {
         #region Pool stuff
         public const int DEFAULT_POOL_CAPACITY = 150;
@@ -43,14 +43,6 @@ namespace BreadLibrary.Core.Graphics.Particles
             IsRestingInPool = true;
         }
         #endregion
-
-        public bool ShouldDrawPixelated => DrawsPixelated;
-        /// <summary>
-        /// Override this to have the particle be drawn in the pixelated renderer instead of the normal one.
-        /// </summary>
-        public virtual bool DrawsPixelated => false;
-
-
         protected sealed override void Register() { }
 
         public sealed override void SetupContent() => this.SetStaticDefaults();
@@ -58,14 +50,21 @@ namespace BreadLibrary.Core.Graphics.Particles
         /// when this is true, the particle is removed from the renderer (and thus the world) at the end of the current frame.
         /// </summary>
         public bool ShouldBeRemovedFromRenderer { get; protected set; }
+        
         /// <summary>
-        /// the PixelLayer this particle should draw to.
-        /// Only relevant if <see cref="DrawsPixelated"/> is true.
+        /// The Particle Renderer that the particle is currently residing in.
         /// </summary>
-        /// <remarks>Note: this is shared between all instances of the particle.</remarks>
-        public virtual PixelLayer PixelLayer { get; }
+        public BakeryParticleRenderer? OwningRenderer { get; set; }
 
+        public ParticleRenderGroup RenderGroup { get; set; } = ParticleRenderGroup.Normal;
 
+        public virtual PixelLayer DefaultPixelLayer => PixelLayer.AboveProjectiles;
+
+        public PixelLayer PixelLayer { get; set; } = PixelLayer.AboveProjectiles;
+
+        public bool HasExplicitPixelLayer { get; set; }
+
+        public bool ShouldDrawPixelated => HasExplicitPixelLayer && !ShouldBeRemovedFromRenderer;
 
         /// <summary>
         /// Draws the particle using the provided renderer settings and sprite batch.
@@ -76,15 +75,12 @@ namespace BreadLibrary.Core.Graphics.Particles
         public virtual void Draw(ref ParticleRendererSettings settings, SpriteBatch spritebatch) { }
 
         public virtual void Update(ref ParticleRendererSettings settings) { }
-        void IDrawPixelated.DrawPixelated(SpriteBatch spriteBatch) => DrawPixelated(spriteBatch);
-        protected void DrawPixelated(SpriteBatch spriteBatch)
+        void IDrawPixelated.DrawPixelated(SpriteBatch spriteBatch)
         {
-            var engine = ParticleEngine.GetRenderer(this);
-            if (engine is not null)
-            {
-                this.Draw(ref engine.Settings, spriteBatch);
-            }
+            if (OwningRenderer is not null)
+                Draw(ref OwningRenderer.Settings, spriteBatch);
         }
+     
 
 
     }
