@@ -47,7 +47,9 @@ namespace BreadLibrary.Core.Graphics.Pixelation
         /// Lower = chunkier pixels. 2 means half-resolution targets.
         /// </summary>
         public static int PixelScale => 2;
-
+        
+        private static int currentDrawStamp;
+        private static int preparedDrawStamp = -1;
         public static Matrix PixelationMatrix
         {
             get => Matrix.CreateScale(1f / PixelScale, 1f / PixelScale, 1f);
@@ -64,8 +66,6 @@ namespace BreadLibrary.Core.Graphics.Pixelation
 
         public override void Load()
         {
-            if (Main.dedServ)
-                return;
             On_Main.DoDraw += PrepareTargetsBeforeDoDraw;
             //DrawHooks.DrawBehindWallsEvent += EnsurePrepared;
             DrawHooks.DrawBehindTilesEvent += DrawBehindTilesTarget;
@@ -121,15 +121,19 @@ namespace BreadLibrary.Core.Graphics.Pixelation
 
         private static void EnsurePrepared()
         {
-            if (Main.gameMenu || Main.dedServ)
+            if (Main.gameMenu || Main.dedServ || Main.mapFullscreen)
                 return;
+
+            if (preparedDrawStamp == currentDrawStamp)
+                return;
+
+            preparedDrawStamp = currentDrawStamp;
 
             EnsureTargets();
             CollectAllDrawRequests();
             DrawQueuesToTargets();
-            Main.graphics.GraphicsDevice.SetRenderTarget(null);
-        }
 
+        }
         private static void EnsureTargets()
         {
             int desiredWidth = Math.Max(1, Main.screenWidth / PixelScale);
@@ -239,7 +243,7 @@ namespace BreadLibrary.Core.Graphics.Pixelation
 
         private static void DrawQueuesToTargets()
         {
-            if (Main.mapFullscreen)
+            if (Main.mapFullscreen|| Main.dedServ)
                 return;
 
             DrawQueueToTarget(behindTilesTarget, BehindTilesDraws);
@@ -251,10 +255,13 @@ namespace BreadLibrary.Core.Graphics.Pixelation
 
         private static void DrawQueueToTarget(RenderTarget2D target, List<IDrawPixelated> queue)
         {
-            if (target is null)
+            if (target is null || target.IsDisposed)
                 return;
 
             GraphicsDevice gd = Main.instance.GraphicsDevice;
+
+            RenderTargetBinding[] oldTargets = gd.GetRenderTargets();
+
             gd.SetRenderTarget(target);
             gd.Clear(Color.Transparent);
 
@@ -275,7 +282,7 @@ namespace BreadLibrary.Core.Graphics.Pixelation
                 Main.spriteBatch.End();
             }
 
-            gd.SetRenderTarget(null);
+            gd.SetRenderTargets(oldTargets);
         }
         private static void DrawTargetBack(RenderTarget2D target, List<IDrawPixelated> queue)
         {
@@ -293,7 +300,7 @@ namespace BreadLibrary.Core.Graphics.Pixelation
 
             Main.spriteBatch.Draw(
                 target,
-                Vector2.Zero - Main.LocalPlayer.velocity,
+                Vector2.Zero,
                 null,
                 Color.White,
                 0f,
@@ -306,6 +313,8 @@ namespace BreadLibrary.Core.Graphics.Pixelation
         }
         private void PrepareTargetsBeforeDoDraw(On_Main.orig_DoDraw orig, Main self, GameTime gameTime)
         {
+            currentDrawStamp++;
+
             if (!Main.dedServ && !Main.gameMenu)
                 EnsurePrepared();
 
@@ -325,7 +334,6 @@ namespace BreadLibrary.Core.Graphics.Pixelation
 
         private static void DrawAbovePlayersTarget(bool _) =>
             DrawTargetBack(abovePlayersTarget, AbovePlayersDraws);
-
         private static void DisposeTarget(ref RenderTarget2D target)
         {
 
