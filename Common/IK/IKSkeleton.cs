@@ -2,32 +2,45 @@ using System;
 using Microsoft.Xna.Framework;
 
 public sealed class IKSkeleton
-{
-    //tfw 
-    public readonly struct JointSetup
+{   
+    /// <summary>
+    ///
+    /// </summary>
+    /// <param name="length">controls how long the bone/segment is.<br/></param>
+    /// <param name="centerDegrees">is the segment's preferred resting local angle.<br/></param>
+    /// <param name="swingDegrees">is how far the segment is allowed to rotate away from that center angle.<br/></param>
+    /// <remarks>
+    /// For example: <br/>
+    /// new JointSetup(40f, 0f, 45f)<br/>
+    /// creates a 40 pixel segment that prefers pointing right, but may rotate
+    /// between -45 and +45 degrees relative to its parent segment.
+    /// </remarks>
+    public readonly struct JointSetup(float length, float centerDegrees, float swingDegrees)
     {
-        public readonly float Length;
-        public readonly float CenterDegrees;
-        public readonly float SwingDegrees;
-
-        public JointSetup(float length, float centerDegrees, float swingDegrees)
-        {
-            Length = length;
-            CenterDegrees = centerDegrees;
-            SwingDegrees = swingDegrees;
-        }
+        public readonly float Length = length;
+        public readonly float CenterDegrees = centerDegrees;
+        public readonly float SwingDegrees = swingDegrees;
+           
     }
-
-    public struct JointLimit
+    /// <summary>
+    /// Stores the allowed local rotation range for one IK segment, in radians.
+    /// These angles are local to the parent segment, not absolute world-space angles.
+    /// For joint 0, the parent angle is treated as 0 radians, meaning its limits are
+    /// relative to the world x-axis.
+    /// </summary>
+    /// <param name="min"></param>
+    /// <param name="max"></param>
+    /// <remarks>
+    /// Min and Max are usually created from a JointSetup by taking:
+    /// center - swing
+    /// center + swing
+    /// </remarks>
+    public struct JointLimit(float min, float max)
     {
-        public float Min;
-        public float Max;
+        public float Min = min;
+        public float Max = max;
 
-        public JointLimit(float min, float max)
-        {
-            Min = min;
-            Max = max;
-        }
+       
     }
 
     //highly doubt we'll ever get this high, but it might be funny
