@@ -104,6 +104,9 @@ namespace BreadLibrary.Core.BaseClasses
                 string realText = GetNameText(item);
                 Vector2 desiredSize = MeasureItemName(item, realText);
 
+                // Terraria measures the tooltip box before PreDrawTooltipLine runs.
+                // Since we manually draw the real text later, this pads the measured vanilla text width
+                // without changing what the player actually sees.
                 line.Text = CreateVanillaMeasuredText(realText, desiredSize.X);
 
                 return;
