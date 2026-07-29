@@ -93,11 +93,10 @@ namespace BreadLibrary.Core.Utilities
                 {
                     break;
                 }
+                Tile tile = Main.tile[x, y];
 
-
-
-                var tile = Main.tile[x, y];
-
+                //if(debug)
+                //RayCastVisualizer.Raycasts.Add(new Raycast(new Vector2(x0, y0), new Vector2(x, y), Color.White));
                 if (ShouldCountWater &&
                     tile != null &&
                     tile.LiquidAmount > 0) 
@@ -120,15 +119,7 @@ namespace BreadLibrary.Core.Utilities
                     return new Point(x, surfaceY);
                 }
 
-                if (tile != null &&
-                    tile.HasTile &&
-                    (tile.HasUnactuatedTile && Main.tileSolid[tile.TileType]    )
-                    &&
-                        Main.tileSolid[tile.TileType] &&
-                   !Main.tileCut[tile.TileType] &&
-                   Main.tileBlockLight[tile.TileType] &&
-                   Collision.SolidCollision(new Vector2(x, y).ToWorldCoordinates(), 16, 16) &&
-                    WorldGen.SolidTile(tile) && Collision.IsWorldPointSolid(new Point(x, y).ToWorldCoordinates()))
+                if (WorldGen.SolidOrSlopedTile(tile))
                 {
                     int surfaceY = y;
 
@@ -140,10 +131,12 @@ namespace BreadLibrary.Core.Utilities
 
                 if (x == x1 && y == y1)
                 {
-                    return new Point(x, y);
+                    if (new Vector2(x0, y0).Distance(new Vector2(x1, y1)) < 1)
+                        return new Point(x, y);
+                    break;
                 }
 
-                    var e2 = err * 2;
+                var e2 = err * 2;
 
                 if (e2 > -dy)
                 {
