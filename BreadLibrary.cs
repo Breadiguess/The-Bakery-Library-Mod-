@@ -1,4 +1,6 @@
 
+using BreadLibrary.Core.MultiSegment;
+
 namespace BreadLibrary
 {
 	public partial class BreadLibrary : Mod
@@ -88,14 +90,12 @@ namespace BreadLibrary
                             {
                                 if (extrahitboxes[i].Active)
                                 {
-                                    if (extrahitboxes[i].UniqueIframes && extrahitboxes[i].ProjectileCollide && extrahitboxes[i].ImmuneTime <= 0)
+                                    if (extrahitboxes[i].UniqueIframes && extrahitboxes[i].ProjectileCollide && (extrahitboxes[i].ImmuneTime <= 0 || extrahitboxes[i].BaseImmunity<=0))
                                     {
-                                        if (extrahitboxes[i].Hitbox.IntersectsConeFastInaccurate(self.Center, 100, 0, 360))
+                                        if (extrahitboxes[i].Hitbox.IntersectsConeFastInaccurate(self.Center, 40, 0, 360))
                                         {
-                                          
-
                                             multisegmentguy.OnHitBoxCollide(i, self);
-                                            extrahitboxes[i].ImmuneTime = extrahitboxes[i].Immunity;
+                                            extrahitboxes[i].ImmuneTime = extrahitboxes[i].BaseImmunity;
                                         }
                                     }
                                 }

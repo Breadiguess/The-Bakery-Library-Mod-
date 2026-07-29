@@ -7,22 +7,8 @@ namespace HeavenlyArsenal.Content.Items
     /// </summary>
     public abstract class VariantItemBase : ModItem
     {
-
-        public virtual int MaxVariants { get; set; }
-
+        public abstract int MaxVariants {  get; }
         private int subID = 0; 
-
-
-        public override void SetStaticDefaults()
-        {
-
-        }
-
-        public override void SetDefaults()
-        {
-            subID = 0;
-        }
-
         public override bool CanStackInWorld(Item item2)
         {
             var other = item2.ModItem as VariantItemBase;
@@ -51,14 +37,14 @@ namespace HeavenlyArsenal.Content.Items
                 }
             }
         }
-
         public override bool PreDrawInWorld(SpriteBatch spriteBatch, Color lightColor, Color alphaColor, ref float rotation, ref float scale, int whoAmI)
         {
             if (subID == 0)
                 return true;
-
-            Texture2D tex = ModContent.Request<Texture2D>(Texture + "World" + (subID).ToString()).Value;
-            Main.EntitySpriteDraw(tex, Item.position - Main.screenPosition, null, lightColor, rotation, Vector2.Zero, scale, SpriteEffects.None, 0f);
+            Texture2D tex = ModContent.Request<Texture2D>(Texture+"_World").Value;
+            Rectangle Frame = tex.Frame(1, MaxVariants, 0, subID);
+            Vector2 DrawPos = Item.position - Main.screenPosition;
+            Main.EntitySpriteDraw(tex, DrawPos, Frame, lightColor, rotation, Frame.Size()/2, scale, SpriteEffects.None, 0f);
             return false;
         }
     }

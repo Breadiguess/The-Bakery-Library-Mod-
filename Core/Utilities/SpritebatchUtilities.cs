@@ -142,7 +142,18 @@ namespace BreadLibrary.Core.Utilities
             Main.instance.GraphicsDevice.ScissorRectangle = new(-2, -2, Main.screenWidth + 4, Main.screenHeight + 4);
             return DefaultRasterizerScreenCull;
         }
-
+        /// <summary>
+        /// resets the spritebatch with the new sampler state, while preserving prior parameters.
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        /// <param name="state"></param>
+        public static void UseSamplerState(this SpriteBatch spriteBatch, SamplerState state)
+        {
+            var cap = spriteBatch.Capture();
+            spriteBatch.End();
+            cap.SamplerState = state;
+            spriteBatch.Begin(cap);
+        }
 
     }
 }

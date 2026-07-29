@@ -1,7 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using Terraria.ModLoader.IO;
 
-namespace BreadLibrary.Core;
+namespace BreadLibrary.Core.MultiSegment;
 
 public interface IMultiSegmentNPC
 {
@@ -49,32 +50,41 @@ public interface IMultiSegmentNPC
     }
 }
 
+
 public class ExtraNPCSegment
 {
     public Rectangle Hitbox;
 
+    /// <summary>
+    /// if true, this hitbox can be hit separately from the npc's iframes
+    /// </summary>
     public bool UniqueIframes;
-
+    /// <summary>
+    /// Self explanatory.a
+    /// </summary>
     public bool DealsDamage;
 
-    public int Immunity;
+    public int BaseImmunity;
 
-    public bool ItemCollide;
+    public bool ItemCollide = true;
 
-    public bool ProjectileCollide;
+    public bool ProjectileCollide = true;
 
     public int ImmuneTime;
 
+    /// <summary>
+    /// whether this segment should take damage or not
+    /// </summary>
     public bool Active;
 
-    public ExtraNPCSegment(Rectangle hitbox, bool dealsDamage = true, bool itemCollide = true, bool projectileCollide = true, bool uniqueIframes = false, int immunity = 60)
+    public ExtraNPCSegment(Rectangle hitbox, bool dealsDamage = true, bool itemCollide = true, bool projectileCollide = true, bool uniqueIframes = false, int Baseimmunity = 60)
     {
         Hitbox = hitbox;
         UniqueIframes = uniqueIframes;
         DealsDamage = dealsDamage;
         ItemCollide = itemCollide;
         ProjectileCollide = projectileCollide;
-        Immunity = immunity;
+        BaseImmunity = Baseimmunity;
         Active = true;
     }
 }

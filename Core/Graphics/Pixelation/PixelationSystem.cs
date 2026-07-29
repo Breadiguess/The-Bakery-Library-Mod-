@@ -47,7 +47,10 @@ namespace BreadLibrary.Core.Graphics.Pixelation
         /// Lower = chunkier pixels. 2 means half-resolution targets.
         /// </summary>
         public static int PixelScale => 2;
-
+        
+        private static int currentDrawStamp;
+        private static int preparedDrawStamp = -1;
+        private static Vector2 preparedScreenPosition;
         public static Matrix PixelationMatrix
         {
             get => Matrix.CreateScale(1f / PixelScale, 1f / PixelScale, 1f);
@@ -64,8 +67,6 @@ namespace BreadLibrary.Core.Graphics.Pixelation
 
         public override void Load()
         {
-            if (Main.dedServ)
-                return;
             On_Main.DoDraw += PrepareTargetsBeforeDoDraw;
             //DrawHooks.DrawBehindWallsEvent += EnsurePrepared;
             DrawHooks.DrawBehindTilesEvent += DrawBehindTilesTarget;
@@ -77,6 +78,7 @@ namespace BreadLibrary.Core.Graphics.Pixelation
 
         public override void Unload()
         {
+            On_Main.DoDraw -= PrepareTargetsBeforeDoDraw;
             //DrawHooks.DrawBehindWallsEvent -= EnsurePrepared;
             DrawHooks.DrawBehindTilesEvent -= DrawBehindTilesTarget;
             DrawHooks.DrawAboveTilesEvent -= DrawAboveTilesTarget;
@@ -119,17 +121,24 @@ namespace BreadLibrary.Core.Graphics.Pixelation
             }
         }
 
+
         private static void EnsurePrepared()
         {
-            if (Main.gameMenu || Main.dedServ)
+            if (Main.gameMenu || Main.dedServ || Main.mapFullscreen)
                 return;
+
+            if (preparedDrawStamp == currentDrawStamp)
+                return;
+
+            preparedDrawStamp = currentDrawStamp;
 
             EnsureTargets();
             CollectAllDrawRequests();
-            DrawQueuesToTargets();
-            Main.graphics.GraphicsDevice.SetRenderTarget(null);
-        }
 
+            preparedScreenPosition = Main.screenPosition;
+
+            DrawQueuesToTargets();
+        }
         private static void EnsureTargets()
         {
             int desiredWidth = Math.Max(1, Main.screenWidth / PixelScale);
@@ -153,11 +162,29 @@ namespace BreadLibrary.Core.Graphics.Pixelation
 
             GraphicsDevice gd = Main.instance.GraphicsDevice;
 
-            behindTilesTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
-            aboveTilesTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
-            aboveNPCsTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
-            aboveProjectilesTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
-            abovePlayersTarget = new RenderTarget2D(gd, targetWidth, targetHeight);
+            behindTilesTarget = CreatePixelTarget(gd);
+            aboveTilesTarget = CreatePixelTarget(gd);
+            aboveNPCsTarget = CreatePixelTarget(gd);
+            aboveProjectilesTarget = CreatePixelTarget(gd);
+            abovePlayersTarget = CreatePixelTarget(gd);
+
+        }
+        /// <summary>
+        /// I'm lazy
+        /// </summary>
+        /// <param name="gd"></param>
+        /// <returns></returns>
+        private static RenderTarget2D CreatePixelTarget(GraphicsDevice gd)
+        {
+            return new RenderTarget2D(
+                gd,
+                targetWidth,
+                targetHeight,
+                false,
+                SurfaceFormat.Color,
+                DepthFormat.None,
+                0,
+                RenderTargetUsage.PreserveContents);
         }
 
         private static void CollectAllDrawRequests()
@@ -237,29 +264,48 @@ namespace BreadLibrary.Core.Graphics.Pixelation
             }
         }
 
+
         private static void DrawQueuesToTargets()
         {
-            if (Main.mapFullscreen)
+
+            if (Main.mapFullscreen|| Main.dedServ)
                 return;
+
+
 
             DrawQueueToTarget(behindTilesTarget, BehindTilesDraws);
             DrawQueueToTarget(aboveTilesTarget, AboveTilesDraws);
             DrawQueueToTarget(aboveNPCsTarget, AboveNPCsDraws);
             DrawQueueToTarget(aboveProjectilesTarget, AboveProjectilesDraws);
             DrawQueueToTarget(abovePlayersTarget, AbovePlayersDraws);
+
+
         }
 
         private static void DrawQueueToTarget(RenderTarget2D target, List<IDrawPixelated> queue)
         {
-            if (target is null)
+            if (target is null || target.IsDisposed)
                 return;
 
             GraphicsDevice gd = Main.instance.GraphicsDevice;
-            gd.SetRenderTarget(target);
-            gd.Clear(Color.Transparent);
 
-            if (queue.Count > 0)
+            RenderTargetBinding[] oldTargets = gd.GetRenderTargets();
+            Viewport oldViewport = gd.Viewport;
+            Rectangle oldScissorRectangle = gd.ScissorRectangle;
+
+            bool spriteBatchBegun = false;
+
+            try
             {
+                gd.SetRenderTarget(target);
+                gd.Viewport = new Viewport(0, 0, target.Width, target.Height);
+                gd.ScissorRectangle = new Rectangle(0, 0, target.Width, target.Height);
+
+                gd.Clear(Color.Transparent);
+
+                if (queue.Count <= 0)
+                    return;
+
                 Main.spriteBatch.Begin(
                     SpriteSortMode.Deferred,
                     BlendState.AlphaBlend,
@@ -269,18 +315,42 @@ namespace BreadLibrary.Core.Graphics.Pixelation
                     null,
                     PixelationMatrix);
 
+                spriteBatchBegun = true;
+
                 for (int i = 0; i < queue.Count; i++)
                     queue[i].DrawPixelated(Main.spriteBatch);
 
                 Main.spriteBatch.End();
+                spriteBatchBegun = false;
             }
+            finally
+            {
+                if (spriteBatchBegun)
+                {
+                    try
+                    {
+                        Main.spriteBatch.End();
+                    }
+                    catch
+                    {
+                    }
+                }
 
-            gd.SetRenderTarget(null);
+                if (oldTargets is not null && oldTargets.Length > 0)
+                    gd.SetRenderTargets(oldTargets);
+                else
+                    gd.SetRenderTarget(null);
+
+                gd.Viewport = oldViewport;
+                gd.ScissorRectangle = oldScissorRectangle;
+            }
         }
         private static void DrawTargetBack(RenderTarget2D target, List<IDrawPixelated> queue)
         {
-            if (target is null || queue.Count == 0)
+            if (target is null || target.IsDisposed || queue.Count == 0)
                 return;
+
+            Vector2 cameraCorrection = preparedScreenPosition - Main.screenPosition;
 
             Main.spriteBatch.Begin(
                 SpriteSortMode.Deferred,
@@ -293,7 +363,7 @@ namespace BreadLibrary.Core.Graphics.Pixelation
 
             Main.spriteBatch.Draw(
                 target,
-                Vector2.Zero - Main.LocalPlayer.velocity,
+                cameraCorrection,
                 null,
                 Color.White,
                 0f,
@@ -306,26 +376,37 @@ namespace BreadLibrary.Core.Graphics.Pixelation
         }
         private void PrepareTargetsBeforeDoDraw(On_Main.orig_DoDraw orig, Main self, GameTime gameTime)
         {
-            if (!Main.dedServ && !Main.gameMenu)
+            currentDrawStamp++;
+
+            if (!Main.dedServ && !Main.gameMenu && !Main.mapFullscreen)
                 EnsurePrepared();
 
             orig(self, gameTime);
         }
-        private static void DrawBehindTilesTarget() =>
+        private static void DrawBehindTilesTarget()
+        {
             DrawTargetBack(behindTilesTarget, BehindTilesDraws);
+        }
 
-        private static void DrawAboveTilesTarget() =>
+        private static void DrawAboveTilesTarget()
+        {
             DrawTargetBack(aboveTilesTarget, AboveTilesDraws);
+        }
 
-        private static void DrawAboveNPCsTarget() =>
+        private static void DrawAboveNPCsTarget()
+        {
             DrawTargetBack(aboveNPCsTarget, AboveNPCsDraws);
+        }
 
-        private static void DrawAboveProjectilesTarget() =>
+        private static void DrawAboveProjectilesTarget()
+        {
             DrawTargetBack(aboveProjectilesTarget, AboveProjectilesDraws);
+        }
 
-        private static void DrawAbovePlayersTarget(bool _) =>
+        private static void DrawAbovePlayersTarget(bool _)
+        {
             DrawTargetBack(abovePlayersTarget, AbovePlayersDraws);
-
+        }
         private static void DisposeTarget(ref RenderTarget2D target)
         {
 
